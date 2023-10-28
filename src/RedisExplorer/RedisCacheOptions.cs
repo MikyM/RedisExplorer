@@ -21,7 +21,11 @@
 //
 
 using JetBrains.Annotations;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RedLockNet;
+using RedLockNet.SERedis;
+using RedLockNet.SERedis.Configuration;
 using StackExchange.Redis;
 using StackExchange.Redis.Configuration;
 using StackExchange.Redis.Profiling;
@@ -49,6 +53,13 @@ public class RedisCacheOptions : IOptions<RedisCacheOptions>
     /// Gets or sets a delegate to create the ConnectionMultiplexer instance.
     /// </summary>
     public Func<Task<IConnectionMultiplexer>>? ConnectionMultiplexerFactory { get; set; }
+    
+    /// <summary>
+    /// Gets or sets a delegate to create the DistributedLockFactory instance.
+    /// </summary>
+    public Func<IConnectionMultiplexer,ILoggerFactory,Task<IDistributedLockFactory>> DistributedLockFactory { get; set; }
+        = (multiplexer,loggerFactory) => Task.FromResult<IDistributedLockFactory>(RedLockFactory.Create(new List<RedLockMultiplexer>()
+            { (ConnectionMultiplexer)multiplexer }, loggerFactory));
 
     /// <summary>
     /// The Redis key prefix. Allows partitioning a single backend cache for use with multiple apps/services.

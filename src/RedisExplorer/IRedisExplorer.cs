@@ -137,7 +137,7 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="options">The cache options for the value.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    Task SetAsync<TValue>(string key, TValue value, DistributedCacheEntryOptions options,
+    Task SetSerializedAsync<TValue>(string key, TValue value, DistributedCacheEntryOptions options,
         CancellationToken token = default);
     
     /// <summary>
@@ -147,7 +147,7 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    Task SetAsync<TValue>(string key, TValue value, CancellationToken token = default);
+    Task SetSerializedAsync<TValue>(string key, TValue value, CancellationToken token = default);
     
     /// <summary>
     /// Sets a value with the given key serializing it beforehand.
@@ -155,7 +155,7 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="options">The cache options for the value.</param>
-    void Set<TValue>(string key, TValue value, DistributedCacheEntryOptions options);
+    void SetSerialized<TValue>(string key, TValue value, DistributedCacheEntryOptions options);
     
     /// <summary>
     /// Sets a value with the given key serializing it beforehand.
@@ -163,7 +163,7 @@ public interface IRedisExplorer : IDistributedCache
     /// </summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
-    void Set<TValue>(string key, TValue value);
+    void SetSerialized<TValue>(string key, TValue value);
 
     /// <summary>
     /// Gets a value with the given key and deserializes it.
@@ -171,12 +171,12 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the located value or null.</returns>
-    Task<TValue> GetAsync<TValue>(string key, CancellationToken token = default);
+    Task<TValue?> GetDeserializedAsync<TValue>(string key, CancellationToken token = default);
     
     /// <summary>
     /// Gets a value with the given key and deserializes it.
     /// </summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <returns>The located value or null.</returns>
-    TValue Get<TValue>(string key);
+    TValue? GetDeserialized<TValue>(string key);
 }

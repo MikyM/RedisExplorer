@@ -10,8 +10,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NRedisStack;
 using RedLockNet;
-using RedLockNet.SERedis;
-using RedLockNet.SERedis.Configuration;
 using StackExchange.Redis;
 
 namespace RedisExplorer;
@@ -60,9 +58,11 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     private readonly ILogger _logger;
     private readonly ILoggerFactory _loggerFactory;
 
+    private readonly TimeProvider _timeProvider;
+
     private readonly SemaphoreSlim _connectionLock = new(initialCount: 1, maxCount: 1);
 
-    private long _lastConnectTicks = DateTimeOffset.UtcNow.Ticks;
+    private long _lastConnectTicks;
     private long _firstErrorTimeTicks;
     private long _previousErrorTimeTicks;
 
@@ -91,12 +91,13 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <summary>
     /// Initializes a new instance of <see cref="RedisExplorer"/>.
     /// </summary>
+    /// <param name="timeProvider">The time provider.</param>
     /// <param name="optionsAccessor">The configuration options.</param>
     /// <param name="jsonSerializerOptionsAccessor">The serialization options.</param>
     /// <param name="redisExplorerOptions">Cache settings.</param>
-    public RedisExplorer(IOptions<RedisCacheOptions> optionsAccessor,
+    public RedisExplorer(TimeProvider timeProvider, IOptions<RedisCacheOptions> optionsAccessor,
         IOptionsMonitor<JsonSerializerOptions> jsonSerializerOptionsAccessor, ImmutableRedisExplorerOptions redisExplorerOptions)
-        : this(optionsAccessor, jsonSerializerOptionsAccessor,
+        : this(timeProvider, optionsAccessor, jsonSerializerOptionsAccessor,
             NullLoggerFactory.Instance.CreateLogger<RedisExplorer>(), NullLoggerFactory.Instance, redisExplorerOptions)
     {
     }
@@ -104,12 +105,13 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <summary>
     /// Initializes a new instance of <see cref="RedisExplorer"/>.
     /// </summary>
+    /// <param name="timeProvider">The time provider.</param>
     /// <param name="optionsAccessor">The configuration options.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="jsonSerializerOptionsAccessor">The serialization options.</param>
     /// <param name="loggerFactory">The logger factory.</param>
     /// <param name="redisExplorerOptions">Cache settings.</param>
-    internal RedisExplorer(IOptions<RedisCacheOptions> optionsAccessor,
+    internal RedisExplorer(TimeProvider timeProvider, IOptions<RedisCacheOptions> optionsAccessor,
         IOptionsMonitor<JsonSerializerOptions> jsonSerializerOptionsAccessor,
         ILogger logger, ILoggerFactory loggerFactory, ImmutableRedisExplorerOptions redisExplorerOptions)
     {
@@ -118,12 +120,16 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(loggerFactory);
         ArgumentNullException.ThrowIfNull(redisExplorerOptions);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         _options = optionsAccessor.Value;
         _jsonSerializerOptions = jsonSerializerOptionsAccessor.Get(JsonOptionsName);
         _logger = logger;
         _loggerFactory = loggerFactory;
         _redisExplorerOptions = redisExplorerOptions;
+        _timeProvider = timeProvider;
+
+        _lastConnectTicks = _timeProvider.GetUtcNow().Ticks;
 
         // This allows partitioning a single backend cache for use with multiple apps/services.
         var prefix = _options.Prefix;
@@ -205,7 +211,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
         var (cache, _) = Connect();
 
-        var creationTime = DateTimeOffset.UtcNow;
+        var creationTime = _timeProvider.GetUtcNow();
 
         var absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
 
@@ -239,7 +245,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         var (cache, _) = await ConnectAsync(token).ConfigureAwait(false);
         Debug.Assert(cache is not null);
 
-        var creationTime = DateTimeOffset.UtcNow;
+        var creationTime = _timeProvider.GetUtcNow();
 
         var absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
 
@@ -326,8 +332,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
             
                 if (lockFactory is null)
                 {
-                    lockFactory = RedLockFactory.Create(new List<RedLockMultiplexer>()
-                        { (ConnectionMultiplexer)connection }, _loggerFactory);
+                    lockFactory = _options.DistributedLockFactory(connection, _loggerFactory).GetAwaiter().GetResult();
                     _lockFactory = lockFactory;
                 }
             }
@@ -397,8 +402,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
             
                 if (lockFactory is null)
                 {
-                    lockFactory = RedLockFactory.Create(new List<RedLockMultiplexer>()
-                        { (ConnectionMultiplexer)connection }, _loggerFactory);
+                    lockFactory = await _options.DistributedLockFactory(connection, _loggerFactory).ConfigureAwait(false);
                     _lockFactory = lockFactory;
                 }
             }
@@ -416,7 +420,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
     private void PrepareConnection(IConnectionMultiplexer connection)
     {
-        WriteTimeTicks(ref _lastConnectTicks, DateTimeOffset.UtcNow);
+        WriteTimeTicks(ref _lastConnectTicks, _timeProvider.GetUtcNow());
         ValidateServerFeatures(connection);
         TryRegisterProfiler(connection);
     }
@@ -606,35 +610,6 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
     }
 
-    private void Refresh(IDatabase cache, string key, DateTimeOffset? absExpr, TimeSpan? sldExpr)
-    {
-        ArgumentNullException.ThrowIfNull(key);
-
-        // Note Refresh has no effect if there is just an absolute expiration (or neither).
-        if (sldExpr.HasValue)
-        {
-            TimeSpan? expr;
-            if (absExpr.HasValue)
-            {
-                var relExpr = absExpr.Value - DateTimeOffset.Now;
-                expr = relExpr <= sldExpr.Value ? relExpr : sldExpr;
-            }
-            else
-            {
-                expr = sldExpr;
-            }
-            try
-            {
-                cache.KeyExpire(_prefix.Append(key), expr);
-            }
-            catch (Exception ex)
-            {
-                OnRedisError(ex, cache);
-                throw;
-            }
-        }
-    }
-
     private static long? GetExpirationInSeconds(DateTimeOffset creationTime, DateTimeOffset? absoluteExpiration, DistributedCacheEntryOptions options)
     {
         if (absoluteExpiration.HasValue && options.SlidingExpiration.HasValue)
@@ -708,7 +683,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     {
         if (_options.UseForceReconnect && (exception is RedisConnectionException or SocketException))
         {
-            var utcNow = DateTimeOffset.UtcNow;
+            var utcNow = _timeProvider.GetUtcNow();
             var previousConnectTime = ReadTimeTicks(ref _lastConnectTicks);
             var elapsedSinceLastReconnect = utcNow - previousConnectTime;
 
@@ -880,8 +855,11 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
     }
     
-    private TValue TryDeserialize<TValue>(byte[]? value)
+    private TValue? TryDeserialize<TValue>(byte[]? value)
     {
+        if (value is null)
+            return default;
+        
         try
         {
             return JsonSerializer.Deserialize<TValue>(value, _jsonSerializerOptions) ?? throw new JsonException($"Error deserializing the object of type {typeof(TValue).Name}.");
@@ -894,7 +872,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     }
 
     /// <inheritdoc />
-    public Task SetAsync<TValue>(string key, TValue value, DistributedCacheEntryOptions options,
+    public Task SetSerializedAsync<TValue>(string key, TValue value, DistributedCacheEntryOptions options,
         CancellationToken token = default)
     {
         var serializedValue = TrySerialize(value);
@@ -902,29 +880,29 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     }
     
     /// <inheritdoc />
-    public Task SetAsync<TValue>(string key, TValue value, CancellationToken token = default)
-        => SetAsync(key, value, _redisExplorerOptions.GetEntryOptions<TValue>(), token);
+    public Task SetSerializedAsync<TValue>(string key, TValue value, CancellationToken token = default)
+        => SetSerializedAsync(key, value, _redisExplorerOptions.GetEntryOptions<TValue>(), token);
 
     /// <inheritdoc />
-    public void Set<TValue>(string key, TValue value, DistributedCacheEntryOptions options)
+    public void SetSerialized<TValue>(string key, TValue value, DistributedCacheEntryOptions options)
     {
         var serializedValue = TrySerialize(value);
         Set(key, serializedValue, options);
     }
 
     /// <inheritdoc />
-    public void Set<TValue>(string key, TValue value)
-        => Set(key, value, _redisExplorerOptions.GetEntryOptions<TValue>());
+    public void SetSerialized<TValue>(string key, TValue value)
+        => SetSerialized(key, value, _redisExplorerOptions.GetEntryOptions<TValue>());
 
     /// <inheritdoc />
-    public async Task<TValue> GetAsync<TValue>(string key, CancellationToken token = default)
+    public async Task<TValue?> GetDeserializedAsync<TValue>(string key, CancellationToken token = default)
     {
         var value = await GetAsync(key, token);
         return TryDeserialize<TValue>(value);
     }
 
     /// <inheritdoc />
-    public TValue Get<TValue>(string key)
+    public TValue? GetDeserialized<TValue>(string key)
     {
         var value = Get(key);
         return TryDeserialize<TValue>(value);

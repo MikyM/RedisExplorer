@@ -1,6 +1,7 @@
 ﻿using JetBrains.Annotations;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using RedLockNet;
 
 namespace RedisExplorer;
@@ -47,6 +48,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDistributedCache>(x => x.GetRequiredService<RedisExplorerImpl>());
         
         services.AddSingleton<IDistributedLockFactory>(x => x.GetRequiredService<RedisExplorerImpl>());
+        
+        services.TryAddSingleton(TimeProvider.System);
 
         return services;
     }
