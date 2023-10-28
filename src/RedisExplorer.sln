@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer", "RedisExplorer\RedisExplorer.csproj", "{D3AB064E-3A40-44FB-BBE9-7F59EE4F75B4}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{137A5B9D-CFC7-4684-9B3F-3C0F473531D9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Unit.Tests", "..\tests\RedisExplorer.Unit.Tests\RedisExplorer.Unit.Tests.csproj", "{9DEDF352-0413-4DFD-A87E-868B0D1568F1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Integration.Tests", "..\tests\RedisExplorer.Integration.Tests\RedisExplorer.Integration.Tests.csproj", "{51822980-B4A6-49A2-8F35-208FB8380288}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D3AB064E-3A40-44FB-BBE9-7F59EE4F75B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3AB064E-3A40-44FB-BBE9-7F59EE4F75B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3AB064E-3A40-44FB-BBE9-7F59EE4F75B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3AB064E-3A40-44FB-BBE9-7F59EE4F75B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9DEDF352-0413-4DFD-A87E-868B0D1568F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9DEDF352-0413-4DFD-A87E-868B0D1568F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9DEDF352-0413-4DFD-A87E-868B0D1568F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9DEDF352-0413-4DFD-A87E-868B0D1568F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{51822980-B4A6-49A2-8F35-208FB8380288}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51822980-B4A6-49A2-8F35-208FB8380288}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51822980-B4A6-49A2-8F35-208FB8380288}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51822980-B4A6-49A2-8F35-208FB8380288}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{9DEDF352-0413-4DFD-A87E-868B0D1568F1} = {137A5B9D-CFC7-4684-9B3F-3C0F473531D9}
+		{51822980-B4A6-49A2-8F35-208FB8380288} = {137A5B9D-CFC7-4684-9B3F-3C0F473531D9}
+	EndGlobalSection
+EndGlobal
