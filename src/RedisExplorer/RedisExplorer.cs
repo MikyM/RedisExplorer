@@ -635,37 +635,6 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
     }
 
-    private async Task RefreshAsync(IDatabase cache, string key, DateTimeOffset? absExpr, TimeSpan? sldExpr, CancellationToken token = default)
-    {
-        ArgumentNullException.ThrowIfNull(key);
-
-        token.ThrowIfCancellationRequested();
-
-        // Note Refresh has no effect if there is just an absolute expiration (or neither).
-        if (sldExpr.HasValue)
-        {
-            TimeSpan? expr;
-            if (absExpr.HasValue)
-            {
-                var relExpr = absExpr.Value - DateTimeOffset.Now;
-                expr = relExpr <= sldExpr.Value ? relExpr : sldExpr;
-            }
-            else
-            {
-                expr = sldExpr;
-            }
-            try
-            {
-                await cache.KeyExpireAsync(_prefix.Append(key), expr).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                OnRedisError(ex, cache);
-                throw;
-            }
-        }
-    }
-
     private static long? GetExpirationInSeconds(DateTimeOffset creationTime, DateTimeOffset? absoluteExpiration, DistributedCacheEntryOptions options)
     {
         if (absoluteExpiration.HasValue && options.SlidingExpiration.HasValue)
