@@ -1,17 +1,52 @@
-﻿using System.Text.Json;
-using JetBrains.Annotations;
+﻿using JetBrains.Annotations;
 using Microsoft.Extensions.Caching.Distributed;
-using NRedisStack;
 using RedLockNet;
+using StackExchange.Redis;
 
 namespace RedisExplorer;
 
 /// <summary>
-/// Represents a Redis cache.
+/// Represents a Redis explorer.
 /// </summary>
 [PublicAPI]
 public interface IRedisExplorer : IDistributedCache
 {
+    /// <summary>
+    /// Gets the underlying Redis <see cref="IDatabase"/>.
+    /// </summary>
+    /// <returns>The underlying Redis database.</returns>
+    IDatabase GetDatabase();
+    
+    /// <summary>
+    /// Gets the underlying Redis <see cref="IDatabase"/>.
+    /// </summary>
+    /// <returns>The underlying Redis database.</returns>
+    Task<IDatabase> GetDatabaseAsync();
+    
+    /// <summary>
+    /// Gets the underlying <see cref="IConnectionMultiplexer"/>.
+    /// </summary>
+    /// <returns>The underlying Redis connection multiplexer.</returns>
+    IConnectionMultiplexer GetMultiplexer();
+    
+    /// <summary>
+    /// Gets the underlying <see cref="IConnectionMultiplexer"/>.
+    /// </summary>
+    /// <returns>The underlying Redis connection multiplexer.</returns>
+    Task<IConnectionMultiplexer> GetMultiplexerAsync();
+    
+    /// <summary>
+    /// Gets the underlying Redis <see cref="IDistributedLockFactory"/>.
+    /// </summary>
+    /// <returns>The underlying Redis lock factory.</returns>
+    IDistributedLockFactory GetLockFactory();
+    
+    /// <summary>
+    /// Gets the underlying Redis <see cref="IDistributedLockFactory"/>.
+    /// </summary>
+    /// <returns>The underlying Redis lock factory.</returns>
+    Task<IDistributedLockFactory> GetLockFactoryAsync();
+    
     /// <summary>
     /// Creates a lock.
     /// </summary>
@@ -66,68 +101,6 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="key">The key to prepend a prefix to.</param>
     /// <returns>The prefixed key.</returns>
     string GetPrefixedKey(string key);
-    
-    /// <summary>
-    /// Gets <see cref="IJsonCommands"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="IJsonCommands"/>.</returns>
-    IJsonCommands GetJsonCommands();
-    /// <summary>
-    /// Gets <see cref="IJsonCommandsAsync"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="IJsonCommandsAsync"/>.</returns>
-    IJsonCommandsAsync GetJsonCommandsAsync();
-    /// <summary>
-    /// Gets <see cref="IBloomCommands"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="IBloomCommands"/>.</returns>
-    IBloomCommands GetBloomCommands();
-    /// <summary>
-    /// Gets <see cref="IBloomCommandsAsync"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="IBloomCommandsAsync"/>.</returns>
-    IBloomCommandsAsync GetBloomCommandsAsync();
-    /// <summary>
-    /// Gets <see cref="ICmsCommands"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="ICmsCommands"/>.</returns>
-    ICmsCommands GetCmsCommands();
-    /// <summary>
-    /// Gets <see cref="ICmsCommandsAsync"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="ICmsCommandsAsync"/>.</returns>
-    ICmsCommandsAsync GetCmsCommandsAsync();
-    /// <summary>
-    /// Gets <see cref="ICuckooCommands"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="ICuckooCommands"/>.</returns>
-    ICuckooCommands GetCuckooCommands();
-    /// <summary>
-    /// Gets <see cref="ICuckooCommandsAsync"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="ICuckooCommandsAsync"/>.</returns>
-    ICuckooCommandsAsync GetCuckooCommandsAsync();
-    /// <summary>
-    /// Gets <see cref="ISearchCommands"/>.
-    /// </summary>
-    /// <param name="defaultDialect">The default dialect, if any.</param>
-    /// <returns>An instance of <see cref="ISearchCommands"/>.</returns>
-    ISearchCommands GetSearchCommands(int? defaultDialect = null);
-    /// <summary>
-    /// Gets <see cref="ISearchCommandsAsync"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="ISearchCommandsAsync"/>.</returns>
-    ISearchCommandsAsync GetSearchCommandsAsync();
-    /// <summary>
-    /// Gets <see cref="ITdigestCommands"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="ITdigestCommands"/>.</returns>
-    ITdigestCommands GetTdigestCommands();
-    /// <summary>
-    /// Gets <see cref="ITdigestCommandsAsync"/>.
-    /// </summary>
-    /// <returns>An instance of <see cref="ITdigestCommandsAsync"/>.</returns>
-    ITdigestCommandsAsync GetTdigestCommandsAsync();
 
     /// <summary>
     /// Sets the value with the given key serializing it beforehand.

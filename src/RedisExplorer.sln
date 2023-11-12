@@ -8,6 +8,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Unit.Tests", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Integration.Tests", "..\tests\RedisExplorer.Integration.Tests\RedisExplorer.Integration.Tests.csproj", "{51822980-B4A6-49A2-8F35-208FB8380288}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Stack", "RedisExplorer.Stack\RedisExplorer.Stack.csproj", "{A7DE63B4-11B5-4AFF-870F-6F5BA25CB7A8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Stack.Unit.Tests", "..\tests\RedisExplorer.Stack.Unit.Tests\RedisExplorer.Stack.Unit.Tests.csproj", "{E0FB87A8-9278-4FD6-BA15-567B66F8B31D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,9 +30,18 @@ Global
 		{51822980-B4A6-49A2-8F35-208FB8380288}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{51822980-B4A6-49A2-8F35-208FB8380288}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{51822980-B4A6-49A2-8F35-208FB8380288}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7DE63B4-11B5-4AFF-870F-6F5BA25CB7A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7DE63B4-11B5-4AFF-870F-6F5BA25CB7A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7DE63B4-11B5-4AFF-870F-6F5BA25CB7A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7DE63B4-11B5-4AFF-870F-6F5BA25CB7A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E0FB87A8-9278-4FD6-BA15-567B66F8B31D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E0FB87A8-9278-4FD6-BA15-567B66F8B31D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E0FB87A8-9278-4FD6-BA15-567B66F8B31D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E0FB87A8-9278-4FD6-BA15-567B66F8B31D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{9DEDF352-0413-4DFD-A87E-868B0D1568F1} = {137A5B9D-CFC7-4684-9B3F-3C0F473531D9}
 		{51822980-B4A6-49A2-8F35-208FB8380288} = {137A5B9D-CFC7-4684-9B3F-3C0F473531D9}
+		{E0FB87A8-9278-4FD6-BA15-567B66F8B31D} = {137A5B9D-CFC7-4684-9B3F-3C0F473531D9}
 	EndGlobalSection
 EndGlobal

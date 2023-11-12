@@ -1,6 +1,4 @@
-﻿using System.Dynamic;
-using System.Net;
-using System.Reflection;
+﻿using System.Net;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
@@ -59,7 +57,7 @@ public class RedisExplorerShould
         redisExplorerOptMock.Setup(x => x.Value).Returns(redisExplorerOpt);
         var immutableOpt = new ImmutableRedisExplorerOptions(redisExplorerOptMock.Object);
         
-        return new RedisExplorerImpl(timeProviderMock.Object, cacheOptMock.Object, jsonOptMock.Object, immutableOpt);
+        return new RedisExplorer(timeProviderMock.Object, cacheOptMock.Object, jsonOptMock.Object, immutableOpt);
     }
 
     [Fact]

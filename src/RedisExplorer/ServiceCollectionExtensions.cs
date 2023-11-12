@@ -41,13 +41,13 @@ public static class ServiceCollectionExtensions
         
         services.AddSingleton<ImmutableRedisExplorerOptions>();
 
-        services.AddSingleton<RedisExplorerImpl>();
+        services.AddSingleton<RedisExplorer>();
 
-        services.AddSingleton<IRedisExplorer>(x => x.GetRequiredService<RedisExplorerImpl>());
+        services.AddSingleton<IRedisExplorer>(x => x.GetRequiredService<RedisExplorer>());
         
-        services.AddSingleton<IDistributedCache>(x => x.GetRequiredService<RedisExplorerImpl>());
+        services.AddSingleton<IDistributedCache>(x => x.GetRequiredService<RedisExplorer>());
         
-        services.AddSingleton<IDistributedLockFactory>(x => x.GetRequiredService<RedisExplorerImpl>());
+        services.AddSingleton<IDistributedLockFactory>(x => x.GetRequiredService<RedisExplorer>());
         
         services.TryAddSingleton(TimeProvider.System);
 
