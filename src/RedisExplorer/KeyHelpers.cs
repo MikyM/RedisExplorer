@@ -1,6 +1,4 @@
-﻿using JetBrains.Annotations;
-
-namespace RedisExplorer;
+﻿namespace RedisExplorer;
 
 /// <summary>
 /// Key helpers.

@@ -1,7 +1,4 @@
-﻿using JetBrains.Annotations;
-using Microsoft.Extensions.Caching.Distributed;
-using RedLockNet;
-using StackExchange.Redis;
+﻿using Microsoft.Extensions.Caching.Distributed;
 
 namespace RedisExplorer;
 

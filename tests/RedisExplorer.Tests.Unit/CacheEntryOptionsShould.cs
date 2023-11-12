@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace RedisExplorer.Unit.Tests;
+namespace RedisExplorer.Tests.Unit;
 
 public class CacheEntryOptionsShould
 {

@@ -1,7 +1,7 @@
 ﻿using FluentAssertions;
 using Microsoft.Extensions.Options;
 
-namespace RedisExplorer.Unit.Tests;
+namespace RedisExplorer.Tests.Unit;
 
 public class ImmutableRedisExplorerOptionsShould
 {

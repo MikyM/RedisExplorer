@@ -20,9 +20,6 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-using JetBrains.Annotations;
-using Microsoft.Extensions.Options;
-
 namespace RedisExplorer;
 
 /// <summary>

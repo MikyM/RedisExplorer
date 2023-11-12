@@ -1,4 +1,4 @@
-namespace RedisExplorer.Stack.Unit.Tests;
+namespace RedisExplorer.Stack.Tests.Unit;
 
 public class UnitTest1
 {

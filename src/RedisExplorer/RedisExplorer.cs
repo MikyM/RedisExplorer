@@ -3,13 +3,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using JetBrains.Annotations;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using RedLockNet;
-using StackExchange.Redis;
 
 namespace RedisExplorer;
 
@@ -43,8 +39,9 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     
     private static readonly Version ServerVersionWithExtendedSetCommand = new(4, 0, 0);
     
-    private volatile IDatabase? _cache;
     private volatile IDistributedLockFactory? _lockFactory;
+    private volatile IConnectionMultiplexer? _multiplexer;
+    private volatile IDatabase? _redisDatabase;
     
     private bool _disposed;
     private string _setScript = LuaScripts.SetScript;
@@ -148,7 +145,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
         var connect = Connect();
 
-        return connect.Database;
+        return connect.RedisDatabase;
     }
     
     /// <inheritdoc/>
@@ -158,7 +155,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
         var connect = await ConnectAsync();
 
-        return connect.Database;
+        return connect.RedisDatabase;
     }
 
     /// <inheritdoc/>
@@ -168,7 +165,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
         var connect = Connect();
 
-        return connect.Database.Multiplexer;
+        return connect.Multiplexer;
     }
     
     /// <inheritdoc/>
@@ -178,7 +175,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
         var connect = await ConnectAsync();
 
-        return connect.Database.Multiplexer;
+        return connect.Multiplexer;
     }
 
     /// <inheritdoc/>
@@ -204,48 +201,97 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <inheritdoc cref="IRedisExplorer.CreateLock(string, TimeSpan)"/>
     public IRedLock CreateLock(string resource, TimeSpan expiryTime)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(resource);
         
-        var (_, lockFactory) = Connect();
-        return lockFactory.CreateLock(resource, expiryTime);
+        var (multiplexer, lockFactory, redisDatabase) = Connect();
+
+        try
+        {
+            return lockFactory.CreateLock(resource, expiryTime);
+        }
+        catch (Exception ex)
+        {
+            OnRedisError(ex, multiplexer, lockFactory, redisDatabase);
+            throw;
+        }
     }
 
     /// <inheritdoc cref="IRedisExplorer.CreateLockAsync(string, TimeSpan)"/>
     public async Task<IRedLock> CreateLockAsync(string resource, TimeSpan expiryTime)
     {
-        ArgumentNullException.ThrowIfNull(resource);
+        CheckDisposed();
         
-        var (_, lockFactory) = await ConnectAsync();
-        return await lockFactory.CreateLockAsync(resource, expiryTime);
+        ArgumentNullException.ThrowIfNull(resource);
+
+        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync();
+        
+        try
+        {
+            return await lockFactory.CreateLockAsync(resource, expiryTime);
+        }
+        catch (Exception ex)
+        {
+            await OnRedisErrorAsync(ex, multiplexer, lockFactory, redisDatabase);
+            throw;
+        }
     }
     
 
     /// <inheritdoc cref="IRedisExplorer.CreateLock(string, TimeSpan, TimeSpan, TimeSpan, CancellationToken?)"/>
     public IRedLock CreateLock(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime, CancellationToken? cancellationToken = null)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(resource);
         
-        var (_, lockFactory) = Connect();
-        return lockFactory.CreateLock(resource, expiryTime, waitTime, retryTime);
+        var (multiplexer, lockFactory, redisDatabase) = Connect();
+
+        try
+        {
+            return lockFactory.CreateLock(resource, expiryTime, waitTime, retryTime);
+        }
+        catch (Exception ex)
+        {
+            OnRedisError(ex, multiplexer, lockFactory, redisDatabase);
+            throw;
+        }
     }
 
     /// <inheritdoc cref="IRedisExplorer.CreateLockAsync(string, TimeSpan, TimeSpan, TimeSpan, CancellationToken?)"/>
     public async Task<IRedLock> CreateLockAsync(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime,
         CancellationToken? cancellationToken = null)
     {
-        ArgumentNullException.ThrowIfNull(resource);
+        CheckDisposed();
         
-        var (_, lockFactory) = await ConnectAsync();
-        return await lockFactory.CreateLockAsync(resource, expiryTime, waitTime, retryTime, cancellationToken);
+        ArgumentNullException.ThrowIfNull(resource);
+
+        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync();
+        
+        try
+        {
+            return await lockFactory.CreateLockAsync(resource, expiryTime, waitTime, retryTime, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await OnRedisErrorAsync(ex, multiplexer, lockFactory, redisDatabase);
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public string GetPrefixedKey(string key)
-         => $"{_options.Prefix}{key}";
+    {
+        CheckDisposed();
+        return $"{_options.Prefix}{key}";
+    }
 
     /// <inheritdoc />
     public byte[]? Get(string key)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
 
         return GetAndRefresh(key, getData: true);
@@ -254,6 +300,8 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <inheritdoc />
     public Task<byte[]?> GetAsync(string key, CancellationToken token = default)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
 
         token.ThrowIfCancellationRequested();
@@ -264,11 +312,13 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <inheritdoc />
     public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        var (cache, _) = Connect();
+        var (multiplexer, lockFactory, redisDatabase) = Connect();
 
         var creationTime = _timeProvider.GetUtcNow();
 
@@ -276,7 +326,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
         try
         {
-            cache.ScriptEvaluate(_setScript, new[] { _prefix.Append(key) },
+            redisDatabase.ScriptEvaluate(_setScript, new[] { _prefix.Append(key) },
                 new RedisValue[]
                 {
                         absoluteExpiration?.ToUnixTimeSeconds() ?? LuaScripts.NotPresent,
@@ -287,7 +337,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
         catch (Exception ex)
         {
-            OnRedisError(ex, cache);
+            OnRedisError(ex, multiplexer, lockFactory, redisDatabase);
             throw;
         }
     }
@@ -295,14 +345,15 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <inheritdoc />
     public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
         token.ThrowIfCancellationRequested();
 
-        var (cache, _) = await ConnectAsync(token);
-        Debug.Assert(cache is not null);
+        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync(token);
 
         var creationTime = _timeProvider.GetUtcNow();
 
@@ -310,7 +361,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
         try
         {
-            await cache.ScriptEvaluateAsync(_setScript, new[] { _prefix.Append(key) },
+            await redisDatabase.ScriptEvaluateAsync(_setScript, new[] { _prefix.Append(key) },
                 new RedisValue[]
                 {
                 absoluteExpiration?.ToUnixTimeSeconds() ?? LuaScripts.NotPresent,
@@ -321,7 +372,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
         catch (Exception ex)
         {
-            OnRedisError(ex, cache);
+            await OnRedisErrorAsync(ex, multiplexer, lockFactory, redisDatabase);
             throw;
         }
     }
@@ -329,6 +380,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <inheritdoc />
     public void Refresh(string key)
     {
+        CheckDisposed();
         ArgumentNullException.ThrowIfNull(key);
         GetAndRefresh(key, getData: false);
     }
@@ -336,6 +388,8 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <inheritdoc />
     public async Task RefreshAsync(string key, CancellationToken token = default)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
 
         token.ThrowIfCancellationRequested();
@@ -343,57 +397,74 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         await GetAndRefreshAsync(key, getData: false, token: token);
     }
 
-    [MemberNotNull(nameof(_cache), nameof(_lockFactory))]
-    private (IDatabase Database, IDistributedLockFactory LockFactory) Connect()
+    [MemberNotNull(nameof(_lockFactory), nameof(_multiplexer), nameof(_redisDatabase))]
+    private (IConnectionMultiplexer Multiplexer, IDistributedLockFactory LockFactory, IDatabase RedisDatabase) Connect()
     {
         CheckDisposed();
         
-        var cache = _cache;
+        var multiplexer = _multiplexer;
         var lockFactory = _lockFactory;
+        var redisDatabase = _redisDatabase;
         
-        if (cache is not null && lockFactory is not null)
+        if (lockFactory is not null && multiplexer is not null && redisDatabase is not null)
         {
-            Debug.Assert(_cache is not null);
             Debug.Assert(_lockFactory is not null);
+            Debug.Assert(_multiplexer is not null);
+            Debug.Assert(_redisDatabase is not null);
             
-            return new (cache,lockFactory);
+            return new (multiplexer, lockFactory, redisDatabase);
         }
 
         _connectionLock.Wait();
         
         try
         {
-            cache = _cache;
+            // check again in case some process finished connecting prior to us waiting on the lock
+            multiplexer = _multiplexer;
             lockFactory = _lockFactory;
-
-            if (cache is null || lockFactory is null)
+            redisDatabase = _redisDatabase;
+            
+            if (lockFactory is not null && multiplexer is not null && redisDatabase is not null)
             {
-                IConnectionMultiplexer connection;
+                Debug.Assert(_lockFactory is not null);
+                Debug.Assert(_multiplexer is not null);
+                Debug.Assert(_redisDatabase is not null);
                 
-                if (_options.ConnectionMultiplexerFactory is null)
-                {
-                    connection = _options.ConfigurationOptions is not null 
-                        ? ConnectionMultiplexer.Connect(_options.ConfigurationOptions) 
-                        : ConnectionMultiplexer.Connect(_options.Configuration!);
-                }
-                else
-                {
-                    connection = _options.ConnectionMultiplexerFactory().GetAwaiter().GetResult();
-                }
-
-                PrepareConnection(connection);
-                
-                cache = connection.GetDatabase();
-                _ = Interlocked.Exchange(ref _cache, cache);
-                
-                lockFactory = _options.DistributedLockFactory(connection, _loggerFactory).GetAwaiter().GetResult();
-                _ = Interlocked.Exchange(ref _lockFactory, lockFactory);
+                return new (multiplexer, lockFactory, redisDatabase);
             }
             
-            Debug.Assert(_cache is not null);
-            Debug.Assert(_lockFactory is not null);
+            IConnectionMultiplexer connection;
+                
+            if (_options.ConnectionMultiplexerFactory is null)
+            {
+                connection = _options.ConfigurationOptions is not null 
+                    ? ConnectionMultiplexer.Connect(_options.ConfigurationOptions) 
+                    : ConnectionMultiplexer.Connect(_options.Configuration!);
+            }
+            else
+            {
+                connection = _options.ConnectionMultiplexerFactory().GetAwaiter().GetResult();
+            }
+
+            PrepareConnection(connection);
+
+            multiplexer = connection;
+                
+            _ = Interlocked.Exchange(ref _multiplexer, multiplexer);
+
+            redisDatabase = multiplexer.GetDatabase();
+
+            _ = Interlocked.Exchange(ref _redisDatabase, redisDatabase);
+                
+            lockFactory = _options.DistributedLockFactory(multiplexer, _loggerFactory).GetAwaiter().GetResult();
+                
+            _ = Interlocked.Exchange(ref _lockFactory, lockFactory);
             
-            return new (cache,lockFactory);
+            Debug.Assert(_lockFactory is not null);
+            Debug.Assert(_multiplexer is not null);
+            Debug.Assert(_redisDatabase is not null);
+            
+            return new (multiplexer, lockFactory, redisDatabase);
         }
         finally
         {
@@ -401,67 +472,88 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
     }
 
-    [MemberNotNull(nameof(_cache), nameof(_lockFactory))]
-    private ValueTask<(IDatabase Database, IDistributedLockFactory LockFactory)> ConnectAsync(CancellationToken token = default)
+    [MemberNotNull(nameof(_lockFactory), nameof(_multiplexer), nameof(_redisDatabase))]
+    private ValueTask<(IConnectionMultiplexer Multiplexer, IDistributedLockFactory LockFactory, IDatabase RedisDatabase)> ConnectAsync(CancellationToken token = default)
     {
         CheckDisposed();
-        token.ThrowIfCancellationRequested();
-
-        var cache = _cache;
-        var lockFactory = _lockFactory;
         
-        if (cache is not null && lockFactory is not null)
+        token.ThrowIfCancellationRequested();
+        
+        var lockFactory = _lockFactory;
+        var multiplexer = _multiplexer;
+        var redisDatabase = _redisDatabase;
+        
+        if (lockFactory is not null && multiplexer is not null && redisDatabase is not null)
         {
-            Debug.Assert(_cache is not null);
             Debug.Assert(_lockFactory is not null);
-            return new ValueTask<(IDatabase Database, IDistributedLockFactory LockFactory)>((cache,lockFactory));
+            Debug.Assert(_multiplexer is not null);
+            Debug.Assert(_redisDatabase is not null);
+            
+            return ValueTask.FromResult<(IConnectionMultiplexer Multiplexer, IDistributedLockFactory LockFactory, IDatabase RedisDatabase)>(new (multiplexer, lockFactory, redisDatabase));
         }
         
         return ConnectSlowAsync(token);
     }
 
-    [MemberNotNull(nameof(_cache), nameof(_lockFactory))]
-    private async ValueTask<(IDatabase Database, IDistributedLockFactory LockFactory)> ConnectSlowAsync(CancellationToken token)
+    [MemberNotNull(nameof(_lockFactory), nameof(_multiplexer), nameof(_redisDatabase))]
+    private async ValueTask<(IConnectionMultiplexer Multiplexer, IDistributedLockFactory LockFactory, IDatabase RedisDatabase)> ConnectSlowAsync(CancellationToken token)
     {
         await _connectionLock.WaitAsync(token);
+        
         try
         {
-            var cache = _cache;
+            // check again in case some process finished connecting prior to us waiting on the lock
+            var multiplexer = _multiplexer;
             var lockFactory = _lockFactory;
-
-            if (cache is null || lockFactory is null)
+            var redisDatabase = _redisDatabase;
+            
+            if (lockFactory is not null && multiplexer is not null && redisDatabase is not null)
             {
-                IConnectionMultiplexer connection;
+                Debug.Assert(_lockFactory is not null);
+                Debug.Assert(_multiplexer is not null);
+                Debug.Assert(_redisDatabase is not null);
                 
-                if (_options.ConnectionMultiplexerFactory is null)
+                return new (multiplexer, lockFactory, redisDatabase);
+            }
+            
+            IConnectionMultiplexer connection;
+                
+            if (_options.ConnectionMultiplexerFactory is null)
+            {
+                if (_options.ConfigurationOptions is not null)
                 {
-                    if (_options.ConfigurationOptions is not null)
-                    {
-                        connection = await ConnectionMultiplexer.ConnectAsync(_options.ConfigurationOptions);
-                    }
-                    else
-                    {
-                        connection = await ConnectionMultiplexer.ConnectAsync(_options.Configuration!);
-                    }
+                    connection = await ConnectionMultiplexer.ConnectAsync(_options.ConfigurationOptions);
                 }
                 else
                 {
-                    connection = await _options.ConnectionMultiplexerFactory();
+                    connection = await ConnectionMultiplexer.ConnectAsync(_options.Configuration!);
                 }
-
-                PrepareConnection(connection);
-                
-                cache = connection.GetDatabase();
-                _ = Interlocked.Exchange(ref _cache, cache);
-                
-                lockFactory = await _options.DistributedLockFactory(connection, _loggerFactory);
-                _ = Interlocked.Exchange(ref _lockFactory, lockFactory);
             }
+            else
+            {
+                connection = await _options.ConnectionMultiplexerFactory();
+            }
+
+            PrepareConnection(connection);
+
+            multiplexer = connection;
+                
+            _ = Interlocked.Exchange(ref _multiplexer, multiplexer);
+                
+            redisDatabase = multiplexer.GetDatabase();
+
+            _ = Interlocked.Exchange(ref _redisDatabase, redisDatabase);
             
-            Debug.Assert(_cache is not null);
+            lockFactory = await _options.DistributedLockFactory(multiplexer, _loggerFactory);
+                
+            _ = Interlocked.Exchange(ref _lockFactory, lockFactory);
+            
             Debug.Assert(_lockFactory is not null);
+            Debug.Assert(_multiplexer is not null);
+            Debug.Assert(_redisDatabase is not null);
             
-            return new (cache, lockFactory);
+            // we can ignore null warnings here because we just set the values and Database/LockFactory can't be null if Multiplexer is not null
+            return new (multiplexer, lockFactory, redisDatabase);
         }
         finally
         {
@@ -478,6 +570,8 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
     private void ValidateServerFeatures(IConnectionMultiplexer connection)
     {
+        CheckDisposed();
+        
         _ = connection ?? throw new InvalidOperationException($"{nameof(connection)} cannot be null.");
 
         try
@@ -503,6 +597,8 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
     private void TryRegisterProfiler(IConnectionMultiplexer connection)
     {
+        CheckDisposed();
+        
         _ = connection ?? throw new InvalidOperationException($"{nameof(connection)} cannot be null.");
 
         if (_options.ProfilingSession is not null)
@@ -513,22 +609,24 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
     private byte[]? GetAndRefresh(string key, bool getData)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
 
-        var (cache, _) = Connect();
+        var (multiplexer, lockFactory, redisDatabase) = Connect();
 
         // This also resets the LRU status as desired.
         // Calculations regarding expiration done server side.
         RedisResult result;
         try
         {
-            result = _cache.ScriptEvaluate(GetAndRefreshLuaScript(getData),
+            result = redisDatabase.ScriptEvaluate(GetAndRefreshLuaScript(getData),
                     new[] { _prefix.Append(key) },
                     GetHashFields(getData));
         }
         catch (Exception ex)
         {
-            OnRedisError(ex, cache);
+            OnRedisError(ex, multiplexer, lockFactory, redisDatabase);
             throw;
         }
 
@@ -560,26 +658,26 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
     private async Task<byte[]?> GetAndRefreshAsync(string key, bool getData, CancellationToken token = default)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
 
         token.ThrowIfCancellationRequested();
 
-        var (cache, _) = await ConnectAsync(token);
-        Debug.Assert(cache is not null);
+        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync(token);
 
         // This also resets the LRU status as desired.
         // Calculations regarding expiration done server side.
         RedisResult result;
         try
         {
-            result = await _cache.ScriptEvaluateAsync(GetAndRefreshLuaScript(getData),
+            result = await redisDatabase.ScriptEvaluateAsync(GetAndRefreshLuaScript(getData),
                     new[] { _prefix.Append(key) },
-                    GetHashFields(getData))
-                ;
+                    GetHashFields(getData));
         }
         catch (Exception ex)
         {
-            OnRedisError(ex, cache);
+            await OnRedisErrorAsync(ex, multiplexer, lockFactory, redisDatabase);
             throw;
         }
 
@@ -612,16 +710,18 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <inheritdoc />
     public void Remove(string key)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
 
-        var (cache, _)  = Connect();
+        var (multiplexer, lockFactory, redisDatabase)  = Connect();
         try
         {
-            cache.KeyDelete(_prefix.Append(key));
+            redisDatabase.KeyDelete(_prefix.Append(key));
         }
         catch (Exception ex)
         {
-            OnRedisError(ex, cache);
+            OnRedisError(ex, multiplexer, lockFactory, redisDatabase);
             throw;
         }
     }
@@ -629,18 +729,19 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     /// <inheritdoc />
     public async Task RemoveAsync(string key, CancellationToken token = default)
     {
+        CheckDisposed();
+        
         ArgumentNullException.ThrowIfNull(key);
 
-        var (cache, _) = await ConnectAsync(token);
-        Debug.Assert(cache is not null);
+        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync(token);
 
         try
         {
-            await cache.KeyDeleteAsync(_prefix.Append(key));
+            await redisDatabase.KeyDeleteAsync(_prefix.Append(key));
         }
         catch (Exception ex)
         {
-            OnRedisError(ex, cache);
+            await OnRedisErrorAsync(ex, multiplexer, lockFactory, redisDatabase);
             throw;
         }
     }
@@ -696,7 +797,9 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         
         Interlocked.Exchange(ref _lockFactory, null);
         
-        ReleaseConnection(Interlocked.Exchange(ref _cache, null));
+        ReleaseConnection(Interlocked.Exchange(ref _multiplexer, null),
+            Interlocked.Exchange(ref _lockFactory, null),
+            Interlocked.Exchange(ref _redisDatabase, null));
     }
     
     /// <inheritdoc />
@@ -711,7 +814,9 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         
         Interlocked.Exchange(ref _lockFactory, null);
         
-        return ReleaseConnectionAsync(Interlocked.Exchange(ref _cache, null));
+        return ReleaseConnectionAsync(Interlocked.Exchange(ref _multiplexer, null),
+            Interlocked.Exchange(ref _lockFactory, null),
+            Interlocked.Exchange(ref _redisDatabase, null));
     }
 
     private void CheckDisposed()
@@ -719,63 +824,102 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
-    private void OnRedisError(Exception exception, IDatabase cache)
+    private bool ShouldForceReconnect()
+    {
+        var utcNow = _timeProvider.GetUtcNow();
+        var previousConnectTime = ReadTimeTicks(ref _lastConnectTicks);
+        var elapsedSinceLastReconnect = utcNow - previousConnectTime;
+
+        // We want to limit how often we perform this top-level reconnect, so we check how long it's been since our last attempt.
+        if (elapsedSinceLastReconnect < _reconnectMinInterval)
+        {
+            return false;
+        }
+
+        var firstErrorTime = ReadTimeTicks(ref _firstErrorTimeTicks);
+        if (firstErrorTime == DateTimeOffset.MinValue)
+        {
+            // note: order/timing here (between the two fields) is not critical
+            WriteTimeTicks(ref _firstErrorTimeTicks, utcNow);
+            WriteTimeTicks(ref _previousErrorTimeTicks, utcNow);
+            return false;
+        }
+
+        var elapsedSinceFirstError = utcNow - firstErrorTime;
+        var elapsedSinceMostRecentError = utcNow - ReadTimeTicks(ref _previousErrorTimeTicks);
+
+        var shouldReconnect =
+            elapsedSinceFirstError >=
+            _reconnectErrorThreshold // Make sure we gave the multiplexer enough time to reconnect on its own if it could.
+            && elapsedSinceMostRecentError <=
+            _reconnectErrorThreshold; // Make sure we aren't working on stale data (e.g. if there was a gap in errors, don't reconnect yet).
+
+        // Update the previousErrorTime timestamp to be now (e.g. this reconnect request).
+        WriteTimeTicks(ref _previousErrorTimeTicks, utcNow);
+
+        if (!shouldReconnect)
+        {
+            return false;
+        }
+
+        WriteTimeTicks(ref _firstErrorTimeTicks, DateTimeOffset.MinValue);
+        WriteTimeTicks(ref _previousErrorTimeTicks, DateTimeOffset.MinValue);
+
+        return true;
+    }
+
+    private void OnRedisError(Exception exception, IConnectionMultiplexer multiplexer, IDistributedLockFactory lockFactory, IDatabase database)
     {
         if (_options.UseForceReconnect && (exception is RedisConnectionException or SocketException))
         {
-            var utcNow = _timeProvider.GetUtcNow();
-            var previousConnectTime = ReadTimeTicks(ref _lastConnectTicks);
-            var elapsedSinceLastReconnect = utcNow - previousConnectTime;
-
-            // We want to limit how often we perform this top-level reconnect, so we check how long it's been since our last attempt.
-            if (elapsedSinceLastReconnect < _reconnectMinInterval)
-            {
-                return;
-            }
-
-            var firstErrorTime = ReadTimeTicks(ref _firstErrorTimeTicks);
-            if (firstErrorTime == DateTimeOffset.MinValue)
-            {
-                // note: order/timing here (between the two fields) is not critical
-                WriteTimeTicks(ref _firstErrorTimeTicks, utcNow);
-                WriteTimeTicks(ref _previousErrorTimeTicks, utcNow);
-                return;
-            }
-
-            var elapsedSinceFirstError = utcNow - firstErrorTime;
-            var elapsedSinceMostRecentError = utcNow - ReadTimeTicks(ref _previousErrorTimeTicks);
-
-            var shouldReconnect =
-                    elapsedSinceFirstError >= _reconnectErrorThreshold // Make sure we gave the multiplexer enough time to reconnect on its own if it could.
-                    && elapsedSinceMostRecentError <= _reconnectErrorThreshold; // Make sure we aren't working on stale data (e.g. if there was a gap in errors, don't reconnect yet).
-
-            // Update the previousErrorTime timestamp to be now (e.g. this reconnect request).
-            WriteTimeTicks(ref _previousErrorTimeTicks, utcNow);
-
+            var shouldReconnect = ShouldForceReconnect();
             if (!shouldReconnect)
             {
                 return;
             }
 
-            WriteTimeTicks(ref _firstErrorTimeTicks, DateTimeOffset.MinValue);
-            WriteTimeTicks(ref _previousErrorTimeTicks, DateTimeOffset.MinValue);
-
             // wipe the shared field, but *only* if it is still the cache we were
             // thinking about (once it is null, the next caller will reconnect)
-            ReleaseConnection(Interlocked.CompareExchange(ref _cache, null, cache));
+            ReleaseConnection(Interlocked.CompareExchange(ref _multiplexer, null, multiplexer),
+                Interlocked.CompareExchange(ref _lockFactory, null, lockFactory),
+                Interlocked.CompareExchange(ref _redisDatabase, null, database));
+        }
+    }
+    
+    private async ValueTask OnRedisErrorAsync(Exception exception, IConnectionMultiplexer multiplexer, IDistributedLockFactory lockFactory, IDatabase database)
+    {
+        if (_options.UseForceReconnect && (exception is RedisConnectionException or SocketException))
+        {
+            var shouldReconnect = ShouldForceReconnect();
+            if (!shouldReconnect)
+            {
+                return;
+            }
+            
+            // wipe the shared field, but *only* if it is still the cache we were
+            // thinking about (once it is null, the next caller will reconnect)
+            await ReleaseConnectionAsync(Interlocked.CompareExchange(ref _multiplexer, null, multiplexer),
+                Interlocked.CompareExchange(ref _lockFactory, null, lockFactory),
+                Interlocked.CompareExchange(ref _redisDatabase, null, database));
         }
     }
 
-    private static void ReleaseConnection(IRedisAsync? cache)
+    private static void ReleaseConnection(IConnectionMultiplexer? multiplexer, IDistributedLockFactory? lockFactory, IDatabase? database)
     {
-        var connection = cache?.Multiplexer;
-        if (connection is null) 
+        if (multiplexer is null && lockFactory is null) 
             return;
         
         try
         {
-            connection.Close();
-            connection.Dispose();
+            DisposeLockFactory(lockFactory);
+
+            if (multiplexer is null)
+            {
+                return;
+            }
+            
+            multiplexer.Close();
+            multiplexer.Dispose();
         }
         catch (Exception ex)
         {
@@ -783,20 +927,63 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
     }
     
-    private static async ValueTask ReleaseConnectionAsync(IRedisAsync? cache)
+    private static async ValueTask ReleaseConnectionAsync(IConnectionMultiplexer? multiplexer, IDistributedLockFactory? lockFactory, IDatabase? database)
     {
-        var connection = cache?.Multiplexer;
-        if (connection is null) 
+        if (multiplexer is null && lockFactory is null) 
             return;
         
         try
         {
-            await connection.CloseAsync();
-            connection.Dispose();
+            await DisposeLockFactoryAsync(lockFactory);
+
+            if (multiplexer is null)
+            {
+                return;
+            }
+            
+            await multiplexer.CloseAsync();
+            await multiplexer.DisposeAsync();
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex);
+        }
+    }
+
+    private static ValueTask DisposeLockFactoryAsync(IDistributedLockFactory? lockFactory)
+    {
+        if (lockFactory is not null)
+        {
+            switch (lockFactory)
+            {
+                case IAsyncDisposable asyncDisposable:
+                    return asyncDisposable.DisposeAsync();
+                case IDisposable disposable:
+                    disposable.Dispose();
+                    break;
+            }
+        }
+
+        return ValueTask.CompletedTask;
+    }
+    
+    private static void DisposeLockFactory(IDistributedLockFactory? lockFactory)
+    {
+        if (lockFactory is not null)
+        {
+            switch (lockFactory)
+            {
+                case IDisposable disposable:
+                    disposable.Dispose();
+                    break;
+                case IAsyncDisposable asyncDisposable:
+                    var task = asyncDisposable.DisposeAsync();
+                    if (!task.IsCompleted)
+                    {
+                        task.AsTask().GetAwaiter().GetResult();
+                    }
+                    break;
+            }
         }
     }
 

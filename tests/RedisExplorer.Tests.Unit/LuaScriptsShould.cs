@@ -1,6 +1,6 @@
 using FluentAssertions;
 
-namespace RedisExplorer.Unit.Tests;
+namespace RedisExplorer.Tests.Unit;
 
 public class LuaScriptsShould
 {

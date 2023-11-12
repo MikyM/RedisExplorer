@@ -4,13 +4,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer", "RedisExplo
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{137A5B9D-CFC7-4684-9B3F-3C0F473531D9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Unit.Tests", "..\tests\RedisExplorer.Unit.Tests\RedisExplorer.Unit.Tests.csproj", "{9DEDF352-0413-4DFD-A87E-868B0D1568F1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Tests.Unit", "..\tests\RedisExplorer.Tests.Unit\RedisExplorer.Tests.Unit.csproj", "{9DEDF352-0413-4DFD-A87E-868B0D1568F1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Integration.Tests", "..\tests\RedisExplorer.Integration.Tests\RedisExplorer.Integration.Tests.csproj", "{51822980-B4A6-49A2-8F35-208FB8380288}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Tests.Integration", "..\tests\RedisExplorer.Tests.Integration\RedisExplorer.Tests.Integration.csproj", "{51822980-B4A6-49A2-8F35-208FB8380288}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Stack", "RedisExplorer.Stack\RedisExplorer.Stack.csproj", "{A7DE63B4-11B5-4AFF-870F-6F5BA25CB7A8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Stack.Unit.Tests", "..\tests\RedisExplorer.Stack.Unit.Tests\RedisExplorer.Stack.Unit.Tests.csproj", "{E0FB87A8-9278-4FD6-BA15-567B66F8B31D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisExplorer.Stack.Tests.Unit", "..\tests\RedisExplorer.Stack.Tests.Unit\RedisExplorer.Stack.Tests.Unit.csproj", "{E0FB87A8-9278-4FD6-BA15-567B66F8B31D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

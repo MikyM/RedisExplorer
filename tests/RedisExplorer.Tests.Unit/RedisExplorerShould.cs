@@ -8,7 +8,7 @@ using Moq;
 using RedLockNet;
 using StackExchange.Redis;
 
-namespace RedisExplorer.Unit.Tests;
+namespace RedisExplorer.Tests.Unit;
 
 public class RedisExplorerShould
 {
