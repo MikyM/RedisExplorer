@@ -2,16 +2,14 @@
 
 [![Build Status](https://github.com/MikyM/RedisExplorer/actions/workflows/release.yml/badge.svg)](https://github.com/MikyM/RedisExplorer/actions)
 
-A meta library attempting to offer extended Redis-related features and optimizations to other implementations (such as Microsoft.Extensions.Caching.StackExchangeRedis).
-
-The main service implements `IDistributedCache` and `IDistributedLockFactory` and registers itself as such with the DI container (and as `IRedisExplorer`).
+A meta library attempting to offer extended Redis-related features and optimizations to other implementations (such as `Microsoft.Extensions.Caching.StackExchangeRedis`).
 
 Heavily inspired by / re-uses:
 - uses https://github.com/StackExchange/StackExchange.Redis
 - uses https://github.com/samcook/RedLock.net
 - uses https://github.com/redis/NRedisStack
-- re-uses parts of code from Microsoft.Extensions.Caching.StackExchangeRedis
-- re-uses parts of code from https://github.com/Remora/Remora.Discord/ and it's caching implementations/abstractions
+- re-uses parts of code from `Microsoft.Extensions.Caching.StackExchangeRedis`
+- re-uses parts of code from https://github.com/Remora/Remora.Discord/ and it's caching implementations/abstractions/configuration
 
 ## Features
 
@@ -23,17 +21,21 @@ Heavily inspired by / re-uses:
 
 ## Description
 
-Library was mainly created to optimize get and refresh operations done by Microsoft.Extensions.Caching.StackExchangeRedis plus connect a few other libraries together.
+Library was mainly created to optimize get and refresh operations done by `Microsoft.Extensions.Caching.StackExchangeRedis` plus connect a few other libraries together.
+
+The main service implements `IDistributedCache` and registers itself as such with the DI container (and as it's own interface - `IRedisExplorer`).
+
+Access to the underlying services is provided through appropriate methods on `IRedisExplorer` - `GetDatabase`, `GetMultiplexer` and their async versions - should you need to do something 'unusual'.
 
 ## Installation
 
-To register the services use the extension method on `IServiceCollection` (it's similar to the one provided by Microsoft.Extensions.Caching.StackExchangeRedis):
+To register the services use the extension method on `IServiceCollection` (it's similar to the one provided by `Microsoft.Extensions.Caching.StackExchangeRedis`):
 
 ```csharp
-builder.AddRedisExplorer(redisConnectionSetupAction, redisExplorerSetupAction);
+services.AddRedisExplorer(redisConnectionSetupAction, redisExplorerSetupAction);
 ```
 
-These will overwrite any other implementations of `IDistributedCache` currently registered with the container.
+These will overwrite any other implementation of `IDistributedCache` currently registered with the container.
 
 If you wish to configure the `JsonSerializerOptions` used for de/serializing:
 ```csharp

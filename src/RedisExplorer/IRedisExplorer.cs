@@ -3,7 +3,7 @@
 namespace RedisExplorer;
 
 /// <summary>
-/// Represents a Redis explorer.
+/// Represents a Redis cache.
 /// </summary>
 [PublicAPI]
 public interface IRedisExplorer : IDistributedCache
@@ -50,15 +50,16 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="resource">The resource to lock.</param>
     /// <param name="expiryTime">The expiry time.</param>
     /// <returns>Created lock.</returns>
-    IRedLock CreateLock(string resource, TimeSpan expiryTime);
+    IDistributedLock CreateLock(string resource, TimeSpan expiryTime);
 
     /// <summary>
     /// Creates a lock.
     /// </summary>
     /// <param name="resource">The resource to lock.</param>
     /// <param name="expiryTime">The expiry time.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>Created lock.</returns>
-    Task<IRedLock> CreateLockAsync(string resource, TimeSpan expiryTime);
+    Task<IDistributedLock> CreateLockAsync(string resource, TimeSpan expiryTime, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Creates a lock.
@@ -69,12 +70,12 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="retryTime">The retry time.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>Created lock.</returns>
-    IRedLock CreateLock(
+    IDistributedLock CreateLock(
         string resource,
         TimeSpan expiryTime,
         TimeSpan waitTime,
         TimeSpan retryTime,
-        CancellationToken? cancellationToken = null);
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Creates a lock.
@@ -85,12 +86,12 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="retryTime">The retry time.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>Created lock.</returns>
-    Task<IRedLock> CreateLockAsync(
+    Task<IDistributedLock> CreateLockAsync(
         string resource,
         TimeSpan expiryTime,
         TimeSpan waitTime,
         TimeSpan retryTime,
-        CancellationToken? cancellationToken = null);
+        CancellationToken cancellationToken = default);
             
     /// <summary>
     /// Gets a prefixed key.

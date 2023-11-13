@@ -70,9 +70,5 @@ public class ImmutableRedisExplorerOptions
     /// <typeparam name="T">The cache entry type.</typeparam>
     /// <returns>The entry options.</returns>
     public CacheEntryOptions GetEntryOptions<T>()
-    {
-        return _cacheEntryOptions.TryGetValue(typeof(T), out var cacheEntryOptions)
-            ? cacheEntryOptions
-            : _defaultCacheEntryOptions;
-    }
+        => _cacheEntryOptions.GetValueOrDefault(typeof(T), _defaultCacheEntryOptions);
 }

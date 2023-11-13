@@ -14,7 +14,7 @@ namespace RedisExplorer;
 /// <para>Uses <c>StackExchange.Redis</c> as the Redis client.</para>
 /// </summary>
 [PublicAPI]
-public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDistributedLockFactory
+public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable
 {
     // Note that the "force reconnect" pattern as described https://learn.microsoft.com/en-us/azure/azure-cache-for-redis/cache-best-practices-connection#using-forcereconnect-with-stackexchangeredis
     // can be enabled via the "Microsoft.AspNetCore.Caching.StackExchangeRedis.UseForceReconnect" app-context switch
@@ -199,7 +199,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     }
     
     /// <inheritdoc cref="IRedisExplorer.CreateLock(string, TimeSpan)"/>
-    public IRedLock CreateLock(string resource, TimeSpan expiryTime)
+    public IDistributedLock CreateLock(string resource, TimeSpan expiryTime)
     {
         CheckDisposed();
         
@@ -218,18 +218,18 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
     }
 
-    /// <inheritdoc cref="IRedisExplorer.CreateLockAsync(string, TimeSpan)"/>
-    public async Task<IRedLock> CreateLockAsync(string resource, TimeSpan expiryTime)
+    /// <inheritdoc cref="IRedisExplorer.CreateLockAsync(string, TimeSpan, CancellationToken)"/>
+    public async Task<IDistributedLock> CreateLockAsync(string resource, TimeSpan expiryTime, CancellationToken cancellationToken = default)
     {
         CheckDisposed();
         
         ArgumentNullException.ThrowIfNull(resource);
 
-        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync();
+        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync(cancellationToken);
         
         try
         {
-            return await lockFactory.CreateLockAsync(resource, expiryTime);
+            return (await lockFactory.CreateLockAsync(resource, expiryTime, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -239,8 +239,8 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     }
     
 
-    /// <inheritdoc cref="IRedisExplorer.CreateLock(string, TimeSpan, TimeSpan, TimeSpan, CancellationToken?)"/>
-    public IRedLock CreateLock(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime, CancellationToken? cancellationToken = null)
+    /// <inheritdoc cref="IRedisExplorer.CreateLock(string, TimeSpan, TimeSpan, TimeSpan, CancellationToken)"/>
+    public IDistributedLock CreateLock(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime, CancellationToken cancellationToken = default)
     {
         CheckDisposed();
         
@@ -250,7 +250,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
 
         try
         {
-            return lockFactory.CreateLock(resource, expiryTime, waitTime, retryTime);
+            return lockFactory.CreateLock(resource, expiryTime, waitTime, retryTime, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -259,19 +259,19 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
         }
     }
 
-    /// <inheritdoc cref="IRedisExplorer.CreateLockAsync(string, TimeSpan, TimeSpan, TimeSpan, CancellationToken?)"/>
-    public async Task<IRedLock> CreateLockAsync(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime,
-        CancellationToken? cancellationToken = null)
+    /// <inheritdoc cref="IRedisExplorer.CreateLockAsync(string, TimeSpan, TimeSpan, TimeSpan, CancellationToken)"/>
+    public async Task<IDistributedLock> CreateLockAsync(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime,
+        CancellationToken cancellationToken = default)
     {
         CheckDisposed();
         
         ArgumentNullException.ThrowIfNull(resource);
 
-        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync();
+        var (multiplexer, lockFactory, redisDatabase) = await ConnectAsync(cancellationToken);
         
         try
         {
-            return await lockFactory.CreateLockAsync(resource, expiryTime, waitTime, retryTime, cancellationToken);
+            return (await lockFactory.CreateLockAsync(resource, expiryTime, waitTime, retryTime, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -954,14 +954,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     {
         if (lockFactory is not null)
         {
-            switch (lockFactory)
-            {
-                case IAsyncDisposable asyncDisposable:
-                    return asyncDisposable.DisposeAsync();
-                case IDisposable disposable:
-                    disposable.Dispose();
-                    break;
-            }
+            return lockFactory.DisposeAsync();
         }
 
         return ValueTask.CompletedTask;
@@ -969,22 +962,7 @@ public class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable, IDis
     
     private static void DisposeLockFactory(IDistributedLockFactory? lockFactory)
     {
-        if (lockFactory is not null)
-        {
-            switch (lockFactory)
-            {
-                case IDisposable disposable:
-                    disposable.Dispose();
-                    break;
-                case IAsyncDisposable asyncDisposable:
-                    var task = asyncDisposable.DisposeAsync();
-                    if (!task.IsCompleted)
-                    {
-                        task.AsTask().GetAwaiter().GetResult();
-                    }
-                    break;
-            }
-        }
+        lockFactory?.Dispose();
     }
 
     private byte[] TrySerialize<TValue>(TValue value)

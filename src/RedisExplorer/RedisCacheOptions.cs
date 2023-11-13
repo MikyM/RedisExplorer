@@ -25,6 +25,7 @@ using RedLockNet.SERedis;
 using RedLockNet.SERedis.Configuration;
 using StackExchange.Redis.Configuration;
 using StackExchange.Redis.Profiling;
+// ReSharper disable PropertyCanBeMadeInitOnly.Global
 
 namespace RedisExplorer;
 
@@ -54,8 +55,8 @@ public class RedisCacheOptions : IOptions<RedisCacheOptions>
     /// Gets or sets a delegate to create the DistributedLockFactory instance.
     /// </summary>
     public Func<IConnectionMultiplexer,ILoggerFactory,Task<IDistributedLockFactory>> DistributedLockFactory { get; set; }
-        = (multiplexer,loggerFactory) => Task.FromResult<IDistributedLockFactory>(RedLockFactory.Create(new List<RedLockMultiplexer>()
-            { (ConnectionMultiplexer)multiplexer }, loggerFactory));
+        = (multiplexer,loggerFactory) => Task.FromResult<IDistributedLockFactory>(new RedisExplorerDistributedLockFactory(RedLockFactory.Create(new List<RedLockMultiplexer>()
+            { (ConnectionMultiplexer)multiplexer }, loggerFactory)));
 
     /// <summary>
     /// The Redis key prefix. Allows partitioning a single backend cache for use with multiple apps/services.

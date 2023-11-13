@@ -45,7 +45,7 @@ public static class ServiceCollectionExtensions
         
         services.AddSingleton<IDistributedCache>(x => x.GetRequiredService<RedisExplorer>());
         
-        services.AddSingleton<IDistributedLockFactory>(x => x.GetRequiredService<RedisExplorer>());
+        services.AddTransient<IDistributedLockFactory>(x => x.GetRequiredService<RedisExplorer>().GetLockFactory());
         
         services.TryAddSingleton(TimeProvider.System);
 
