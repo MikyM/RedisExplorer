@@ -73,7 +73,7 @@ internal static class LuaScripts
                 local relexp = 1
                 if absexp ~= -1 then
                   relexp = absexp - time                 
-                  if relexp <= 0
+                  if relexp <= 0 then
                     return '1'
                   end
                 end
@@ -124,7 +124,7 @@ internal static class LuaScripts
                 local relexp = 1
                 if absexp ~= -1 then
                   relexp = absexp - time                 
-                  if relexp <= 0
+                  if relexp <= 0 then
                     return '1'
                   end
                 end

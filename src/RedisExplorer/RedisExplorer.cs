@@ -435,15 +435,13 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             
             IConnectionMultiplexer connection;
                 
-            if (_options.ConnectionMultiplexerFactory is null)
+            if (_options.ConnectionMultiplexerFactoryOptions is null)
             {
-                connection = _options.ConfigurationOptions is not null 
-                    ? ConnectionMultiplexer.Connect(_options.ConfigurationOptions) 
-                    : ConnectionMultiplexer.Connect(_options.Configuration!);
+                connection = ConnectionMultiplexer.Connect(_options.GetConfiguredOptions("RedisExplorer"));
             }
             else
             {
-                connection = _options.ConnectionMultiplexerFactory().GetAwaiter().GetResult();
+                connection = _options.ConnectionMultiplexerFactoryOptions.Factory().GetAwaiter().GetResult();
             }
 
             PrepareConnection(connection);
@@ -518,20 +516,13 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             
             IConnectionMultiplexer connection;
                 
-            if (_options.ConnectionMultiplexerFactory is null)
+            if (_options.ConnectionMultiplexerFactoryOptions is null)
             {
-                if (_options.ConfigurationOptions is not null)
-                {
-                    connection = await ConnectionMultiplexer.ConnectAsync(_options.ConfigurationOptions);
-                }
-                else
-                {
-                    connection = await ConnectionMultiplexer.ConnectAsync(_options.Configuration!);
-                }
+                connection = await ConnectionMultiplexer.ConnectAsync(_options.GetConfiguredOptions("RedisExplorer"));
             }
             else
             {
-                connection = await _options.ConnectionMultiplexerFactory();
+                connection = await _options.ConnectionMultiplexerFactoryOptions.Factory();
             }
 
             PrepareConnection(connection);
@@ -638,7 +629,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             return (byte[]?)result;
         }
 
-        if (!result.TryExtractString(out var resultString))
+        if (!result.TryExtractString(out var resultString, out _, out _))
         {
             _logger.LogWarning("Unexpected value returned from Redis script execution. Expected: {ExpectedType}. Actual: {ActualType}",
                 $"{ResultType.SimpleString} or {ResultType.BulkString}", result.Resp3Type.ToString());
@@ -689,7 +680,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             return (byte[]?)result;
         }
 
-        if (!result.TryExtractString(out var resultString))
+        if (!result.TryExtractString(out var resultString, out _, out _))
         {
             _logger.LogWarning("Unexpected value returned from Redis script execution. Expected: {ExpectedType}. Actual: {ActualType}",
                 $"{ResultType.SimpleString} or {ResultType.BulkString}", result.Resp3Type.ToString());
@@ -886,22 +877,24 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         }
     }
     
-    private async ValueTask OnRedisErrorAsync(Exception exception, IConnectionMultiplexer multiplexer, IDistributedLockFactory lockFactory, IDatabase database)
+    private ValueTask OnRedisErrorAsync(Exception exception, IConnectionMultiplexer multiplexer, IDistributedLockFactory lockFactory, IDatabase database)
     {
         if (_options.UseForceReconnect && (exception is RedisConnectionException or SocketException))
         {
             var shouldReconnect = ShouldForceReconnect();
             if (!shouldReconnect)
             {
-                return;
+                return ValueTask.CompletedTask;
             }
             
             // wipe the shared field, but *only* if it is still the cache we were
             // thinking about (once it is null, the next caller will reconnect)
-            await ReleaseConnectionAsync(Interlocked.CompareExchange(ref _multiplexer, null, multiplexer),
+            return ReleaseConnectionAsync(Interlocked.CompareExchange(ref _multiplexer, null, multiplexer),
                 Interlocked.CompareExchange(ref _lockFactory, null, lockFactory),
                 Interlocked.CompareExchange(ref _redisDatabase, null, database));
         }
+
+        return ValueTask.CompletedTask;
     }
 
     private static void ReleaseConnection(IConnectionMultiplexer? multiplexer, IDistributedLockFactory? lockFactory, IDatabase? database)

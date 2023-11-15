@@ -46,7 +46,7 @@ public class RedisExplorerTests
 
             var cacheOpt = new RedisCacheOptions
             {
-                ConnectionMultiplexerFactory = () => Task.FromResult(multiplexerMock.Object),
+                ConnectionMultiplexerFactoryOptions = new ConnectionMultiplexerFactoryOptions(() => Task.FromResult(multiplexerMock.Object)),
                 DistributedLockFactory = (_, _) => Task.FromResult(lockFactoryMock.Object),
                 Prefix = prefix
             };

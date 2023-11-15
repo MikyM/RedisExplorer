@@ -47,9 +47,9 @@ public class RedisCacheOptions : IOptions<RedisCacheOptions>
     public ConfigurationOptions? ConfigurationOptions { get; set; }
 
     /// <summary>
-    /// Gets or sets a delegate to create the ConnectionMultiplexer instance.
+    /// The configuration used to obtain a Redis connection using a factory method.
     /// </summary>
-    public Func<Task<IConnectionMultiplexer>>? ConnectionMultiplexerFactory { get; set; }
+    public ConnectionMultiplexerFactoryOptions? ConnectionMultiplexerFactoryOptions { get; set; }
     
     /// <summary>
     /// Gets or sets a delegate to create the DistributedLockFactory instance.
