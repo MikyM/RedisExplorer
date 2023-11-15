@@ -36,65 +36,34 @@ namespace RedisExplorer;
 public class RedisCacheOptions : IOptions<RedisCacheOptions>
 {
     /// <summary>
-    /// The configuration used to connect to Redis.
+    /// Gets or sets the connection options.
     /// </summary>
-    public string? Configuration { get; set; }
-
-    /// <summary>
-    /// The configuration used to connect to Redis.
-    /// This is preferred over Configuration.
-    /// </summary>
-    public ConfigurationOptions? ConfigurationOptions { get; set; }
-
-    /// <summary>
-    /// The configuration used to obtain a Redis connection using a factory method.
-    /// </summary>
-    public ConnectionMultiplexerFactoryOptions? ConnectionMultiplexerFactoryOptions { get; set; }
+    public RedisCacheConnectionOptions ConnectionOptions { get; init; } = new("localhost");
     
     /// <summary>
-    /// Gets or sets a delegate to create the DistributedLockFactory instance.
+    /// Gets or sets the expiration options.
     /// </summary>
-    public Func<IConnectionMultiplexer,ILoggerFactory,Task<IDistributedLockFactory>> DistributedLockFactory { get; set; }
-        = (multiplexer,loggerFactory) => Task.FromResult<IDistributedLockFactory>(new RedisExplorerDistributedLockFactory(RedLockFactory.Create(new List<RedLockMultiplexer>()
-            { (ConnectionMultiplexer)multiplexer }, loggerFactory)));
+    public RedisCacheExpirationOptions ExpirationOptions { get; init; } = new();
 
     /// <summary>
     /// The Redis key prefix. Allows partitioning a single backend cache for use with multiple apps/services.
-    /// If set, the cache keys are prefixed with this value.
+    /// If init, the cache keys are prefixed with this value.
     /// </summary>
-    public string? Prefix { get; set; }
+    public string? Prefix { get; init; }
 
     /// <summary>
     /// The Redis profiling session
     /// </summary>
-    public Func<ProfilingSession>? ProfilingSession { get; set; }
+    public Func<ProfilingSession>? ProfilingSession { get; init; }
 
     RedisCacheOptions IOptions<RedisCacheOptions>.Value => this;
 
-    private bool? _useForceReconnect;
-    internal bool UseForceReconnect
+    /// <summary>
+    /// Runs post configuration.
+    /// </summary>
+    public void PostConfigure()
     {
-        get
-        {
-            return _useForceReconnect ??= GetDefaultValue();
-            static bool GetDefaultValue() =>
-                AppContext.TryGetSwitch("Microsoft.AspNetCore.Caching.StackExchangeRedis.UseForceReconnect", out var value) && value;
-        }
-        set => _useForceReconnect = value;
-    }
-
-    internal ConfigurationOptions GetConfiguredOptions(string libSuffix)
-    {
-        var options = ConfigurationOptions?.Clone() ?? ConfigurationOptions.Parse(Configuration!);
-
-        // we don't want an initially unavailable server to prevent DI creating the service itself
-        options.AbortOnConnectFail = false;
-
-        if (!string.IsNullOrWhiteSpace(libSuffix))
-        {
-            var provider = DefaultOptionsProvider.GetProvider(options.EndPoints);
-            options.LibraryName = $"{provider.LibraryName} {libSuffix}";
-        }
-        return options;
+        ExpirationOptions.PostConfigure();
+        ConnectionOptions.PostConfigure();
     }
 }

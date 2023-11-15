@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Caching.Distributed;
+﻿using System.Text.Json;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
 
 namespace RedisExplorer;
 
@@ -8,6 +10,21 @@ namespace RedisExplorer;
 [PublicAPI]
 public interface IRedisExplorer : IDistributedCache
 {
+    /// <summary>
+    /// The options.
+    /// </summary>
+    RedisCacheOptions Options { get; }
+    
+    /// <summary>
+    /// The json options.
+    /// </summary>
+    JsonSerializerOptions JsonSerializerOptions { get; }
+        
+    /// <summary>
+    /// The inner logger.
+    /// </summary>
+    ILogger Logger { get; }
+    
     /// <summary>
     /// Gets the underlying Redis <see cref="IDatabase"/>.
     /// </summary>
@@ -99,55 +116,4 @@ public interface IRedisExplorer : IDistributedCache
     /// <param name="key">The key to prepend a prefix to.</param>
     /// <returns>The prefixed key.</returns>
     string GetPrefixedKey(string key);
-
-    /// <summary>
-    /// Sets the value with the given key serializing it beforehand.
-    /// </summary>
-    /// <param name="key">A string identifying the requested value.</param>
-    /// <param name="value">The value to set in the cache.</param>
-    /// <param name="options">The cache options for the value.</param>
-    /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
-    /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    Task SetSerializedAsync<TValue>(string key, TValue value, DistributedCacheEntryOptions options,
-        CancellationToken token = default);
-    
-    /// <summary>
-    /// Sets the value with the given key serializing it beforehand. The <see cref="DistributedCacheEntryOptions"/> will be obtained from <see cref="RedisExplorerOptions"/> based on the value type.
-    /// </summary>
-    /// <param name="key">A string identifying the requested value.</param>
-    /// <param name="value">The value to set in the cache.</param>
-    /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
-    /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    Task SetSerializedAsync<TValue>(string key, TValue value, CancellationToken token = default);
-    
-    /// <summary>
-    /// Sets a value with the given key serializing it beforehand.
-    /// </summary>
-    /// <param name="key">A string identifying the requested value.</param>
-    /// <param name="value">The value to set in the cache.</param>
-    /// <param name="options">The cache options for the value.</param>
-    void SetSerialized<TValue>(string key, TValue value, DistributedCacheEntryOptions options);
-    
-    /// <summary>
-    /// Sets a value with the given key serializing it beforehand.
-    /// The <see cref="DistributedCacheEntryOptions"/> will be obtained from <see cref="RedisExplorerOptions"/> based on the value type>.
-    /// </summary>
-    /// <param name="key">A string identifying the requested value.</param>
-    /// <param name="value">The value to set in the cache.</param>
-    void SetSerialized<TValue>(string key, TValue value);
-
-    /// <summary>
-    /// Gets a value with the given key and deserializes it.
-    /// </summary>
-    /// <param name="key">A string identifying the requested value.</param>
-    /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
-    /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the located value or null.</returns>
-    Task<TValue?> GetDeserializedAsync<TValue>(string key, CancellationToken token = default);
-    
-    /// <summary>
-    /// Gets a value with the given key and deserializes it.
-    /// </summary>
-    /// <param name="key">A string identifying the requested value.</param>
-    /// <returns>The located value or null.</returns>
-    TValue? GetDeserialized<TValue>(string key);
 }

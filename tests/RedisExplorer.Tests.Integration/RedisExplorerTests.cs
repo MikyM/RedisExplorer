@@ -12,82 +12,84 @@ using Testcontainers.Redis;
 namespace RedisExplorer.Tests.Integration;
 
 [UsedImplicitly]
-public class RedisExplorerTests
+public sealed class Fixture : IDisposable, IAsyncDisposable
 {
-    [UsedImplicitly]
-    public sealed class Fixture : IDisposable, IAsyncDisposable
+    public string TestString => "testString";
+    public string GetKey() => Guid.NewGuid().ToString();
+
+    public TimeSpan Delay = TimeSpan.FromSeconds(1);
+    public TimeSpan AcceptedDelta = TimeSpan.FromSeconds(1);
+
+    private readonly ConnectionMultiplexer _multiplexer;
+    private readonly RedisContainer _container;
+
+    private const string RedisImage = "redis/redis-stack:latest";
+    private const string RedisContainerName = "redis-explorer-test";
+
+    public Fixture()
     {
-        public string TestString => "testString";
-        public string GetKey() => Guid.NewGuid().ToString();
-        
-        public TimeSpan Delay = TimeSpan.FromSeconds(1);
-        public TimeSpan AcceptedDelta = TimeSpan.FromSeconds(1);
-        
-        private readonly ConnectionMultiplexer _multiplexer;
-        private readonly RedisContainer _container;
+        Console.WriteLine(
+            $"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Creating Redis container...");
 
-        private const string RedisImage = "redis/redis-stack:latest";
-        private const string RedisContainerName = "redis-explorer-test";
-        
-        public Fixture()
-        {
-            Console.WriteLine($"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Creating Redis container...");
-            
-            _container = new RedisBuilder()
-                .WithImage(RedisImage)
-                .WithName(RedisContainerName)
-                .WithExposedPort(RedisBuilder.RedisPort)
-                .Build();
+        _container = new RedisBuilder()
+            .WithImage(RedisImage)
+            .WithName(RedisContainerName)
+            .WithExposedPort(RedisBuilder.RedisPort)
+            .Build();
 
-            _container.StartAsync().GetAwaiter().GetResult();
-            
-            _multiplexer = ConnectionMultiplexer.Connect(_container.GetConnectionString());
-            
-            Console.WriteLine($"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Redis container created");
-        }
+        _container.StartAsync().GetAwaiter().GetResult();
 
-        public IRedisExplorer GetTestInstance(TimeProvider? timeProvider = null)
-        {
-            var cacheOpt = new RedisCacheOptions
-            {
-                ConnectionMultiplexerFactoryOptions = new ConnectionMultiplexerFactoryOptions(() => Task.FromResult((IConnectionMultiplexer)_multiplexer))
-            };
-            
-            var cacheOptMock = new Mock<IOptions<RedisCacheOptions>>();
-            cacheOptMock.SetupGet(x => x.Value).Returns(cacheOpt);
+        _multiplexer = ConnectionMultiplexer.Connect(_container.GetConnectionString());
 
-            var jsonOpt = new JsonSerializerOptions();
-            var jsonOptMock = new Mock<IOptionsMonitor<JsonSerializerOptions>>();
-            jsonOptMock.Setup(x => x.Get(RedisExplorer.JsonOptionsName)).Returns(jsonOpt);
-
-            var redisExplorerOpt = new RedisExplorerOptions();
-            var redisExplorerOptMock = new Mock<IOptions<RedisExplorerOptions>>();
-            redisExplorerOptMock.Setup(x => x.Value).Returns(redisExplorerOpt);
-            var immutableOpt = new ImmutableRedisExplorerOptions(redisExplorerOptMock.Object);
-
-            return new RedisExplorer(timeProvider ?? TimeProvider.System, cacheOptMock.Object, jsonOptMock.Object, immutableOpt);
-        }
-
-        public void Dispose()
-        {
-            _multiplexer.Dispose();
-            _container.StopAsync().GetAwaiter().GetResult();
-            _container.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            
-            Console.WriteLine($"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Test containers pruned");
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            await _multiplexer.DisposeAsync();
-            await _container.StopAsync();
-            await _container.DisposeAsync();
-            
-            Console.WriteLine($"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Test containers pruned");
-        }
+        Console.WriteLine(
+            $"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Redis container created");
     }
 
-    public class Set : IClassFixture<Fixture>
+    public IRedisExplorer GetTestInstance(TimeProvider? timeProvider = null)
+    {
+        var cacheOpt = new RedisCacheOptions
+        {
+            ConnectionOptions =
+                new RedisCacheConnectionOptions(() => Task.FromResult((IConnectionMultiplexer)_multiplexer))
+        };
+        cacheOpt.PostConfigure();
+        var cacheOptMock = new Mock<IOptions<RedisCacheOptions>>();
+        cacheOptMock.SetupGet(x => x.Value).Returns(cacheOpt);
+
+        var jsonOpt = new JsonSerializerOptions();
+        var jsonOptMock = new Mock<IOptionsMonitor<JsonSerializerOptions>>();
+        jsonOptMock.Setup(x => x.Get(RedisExplorer.JsonOptionsName)).Returns(jsonOpt);
+
+        return new RedisExplorer(timeProvider ?? TimeProvider.System, cacheOptMock.Object, jsonOptMock.Object);
+    }
+
+    public void Dispose()
+    {
+        _multiplexer.Dispose();
+        _container.StopAsync().GetAwaiter().GetResult();
+        _container.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+        Console.WriteLine(
+            $"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Test containers pruned");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _multiplexer.DisposeAsync();
+        await _container.StopAsync();
+        await _container.DisposeAsync();
+
+        Console.WriteLine(
+            $"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Test containers pruned");
+    }
+}
+
+[UsedImplicitly]
+[CollectionDefinition("IntegrationTests")]
+public class RedisExplorerTests : ICollectionFixture<Fixture>
+{
+    [Collection("IntegrationTests")]
+    public class Set
     {
         private readonly Fixture _fixture;
 
@@ -158,7 +160,8 @@ public class RedisExplorerTests
         }
     }
     
-    public class SetAsync : IClassFixture<Fixture>
+    [Collection("IntegrationTests")]
+    public class SetAsync
     {
         private readonly Fixture _fixture;
 
@@ -229,7 +232,8 @@ public class RedisExplorerTests
         }
     }
     
-    public class Get : IClassFixture<Fixture>
+    [Collection("IntegrationTests")]
+    public class Get
     {
         private readonly Fixture _fixture;
 
@@ -323,7 +327,8 @@ public class RedisExplorerTests
         }
     }
     
-    public class GetAsync : IClassFixture<Fixture>
+    [Collection("IntegrationTests")]
+    public class GetAsync
     {
         private readonly Fixture _fixture;
 
@@ -415,7 +420,8 @@ public class RedisExplorerTests
         }
     }
     
-    public class Refresh : IClassFixture<Fixture>
+    [Collection("IntegrationTests")]
+    public class Refresh
     {
         private readonly Fixture _fixture;
 
@@ -509,7 +515,8 @@ public class RedisExplorerTests
         }
     }
     
-    public class RefreshAsync : IClassFixture<Fixture>
+    [Collection("IntegrationTests")]
+    public class RefreshAsync
     {
         private readonly Fixture _fixture;
 

@@ -16,28 +16,16 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="setupAction">An <see cref="Action{RedisCacheOptions}"/> to configure the provided
     /// <see cref="RedisCacheOptions"/>.</param>
-    /// <param name="redisExplorerAction">An <see cref="Action{RedisExplorerOptions}"/> to configure the provided
-    /// <see cref="RedisExplorerOptions"/>.</param>
+    /// <see cref="RedisCacheExpirationOptions"/>.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    public static IServiceCollection AddRedisExplorer(this IServiceCollection services, Action<RedisCacheOptions> setupAction, Action<RedisExplorerOptions>? redisExplorerAction = null)
+    public static IServiceCollection AddRedisExplorer(this IServiceCollection services, Action<RedisCacheOptions> setupAction)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(setupAction);
 
         services.AddOptions();
 
-        services.Configure(setupAction);
-
-        if (redisExplorerAction is not null)
-        {
-            services.AddOptions<RedisExplorerOptions>().Configure(redisExplorerAction);
-        }
-        else
-        {
-            services.AddOptions<RedisExplorerOptions>();
-        }
-        
-        services.AddSingleton<ImmutableRedisExplorerOptions>();
+        services.AddOptions<RedisCacheOptions>().Configure(setupAction).PostConfigure(x => x.PostConfigure());
 
         services.AddSingleton<RedisExplorer>();
 

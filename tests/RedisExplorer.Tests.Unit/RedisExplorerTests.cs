@@ -46,23 +46,23 @@ public class RedisExplorerTests
 
             var cacheOpt = new RedisCacheOptions
             {
-                ConnectionMultiplexerFactoryOptions = new ConnectionMultiplexerFactoryOptions(() => Task.FromResult(multiplexerMock.Object)),
-                DistributedLockFactory = (_, _) => Task.FromResult(lockFactoryMock.Object),
+                ConnectionOptions = new RedisCacheConnectionOptions(() => Task.FromResult(multiplexerMock.Object))
+                {
+                    DistributedLockFactory = (_, _) => Task.FromResult(lockFactoryMock.Object),
+                },
                 Prefix = prefix
             };
+            cacheOpt.PostConfigure();
+            
             var cacheOptMock = new Mock<IOptions<RedisCacheOptions>>();
+            
             cacheOptMock.SetupGet(x => x.Value).Returns(cacheOpt);
 
             var jsonOpt = GetJsonOptions();
             var jsonOptMock = new Mock<IOptionsMonitor<JsonSerializerOptions>>();
             jsonOptMock.Setup(x => x.Get(RedisExplorer.JsonOptionsName)).Returns(jsonOpt);
 
-            var redisExplorerOpt = new RedisExplorerOptions();
-            var redisExplorerOptMock = new Mock<IOptions<RedisExplorerOptions>>();
-            redisExplorerOptMock.Setup(x => x.Value).Returns(redisExplorerOpt);
-            var immutableOpt = new ImmutableRedisExplorerOptions(redisExplorerOptMock.Object);
-
-            return new RedisExplorer(timeProviderMock.Object, cacheOptMock.Object, jsonOptMock.Object, immutableOpt);
+            return new RedisExplorer(timeProviderMock.Object, cacheOptMock.Object, jsonOptMock.Object);
         }
     }
 
@@ -395,7 +395,7 @@ public class RedisExplorerTests
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(),6, fixture.GetTimeProviderMock());
         
             // Act
-            var result = redisExplorer.GetDeserialized<TestObj>(fixture.TestKey);
+            var result = redisExplorer.Get<TestObj>(fixture.TestKey);
         
             // Assert
             result.Should().NotBeNull();
@@ -422,7 +422,7 @@ public class RedisExplorerTests
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(),6, fixture.GetTimeProviderMock());
         
             // Act
-            var result = redisExplorer.GetDeserialized<TestObj>(fixture.TestKey);
+            var result = redisExplorer.Get<TestObj>(fixture.TestKey);
         
             // Assert
             result.Should().BeNull();
@@ -455,7 +455,7 @@ public class RedisExplorerTests
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
 
             // Act
-            var result = await redisExplorer.GetDeserializedAsync<TestObj>(fixture.TestKey);
+            var result = await redisExplorer.GetAsync<TestObj>(fixture.TestKey);
 
             // Assert
             result.Should().NotBeNull();
@@ -483,7 +483,7 @@ public class RedisExplorerTests
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
 
             // Act
-            var result = await redisExplorer.GetDeserializedAsync<TestObj>(fixture.TestKey);
+            var result = await redisExplorer.GetAsync<TestObj>(fixture.TestKey);
 
             // Assert
             result.Should().BeNull();
@@ -758,7 +758,7 @@ public class RedisExplorerTests
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            redisExplorer.SetSerialized(fixture.TestKey, testObj, opt);
+            redisExplorer.Set(fixture.TestKey, testObj, opt);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
@@ -785,7 +785,7 @@ public class RedisExplorerTests
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            await redisExplorer.SetSerializedAsync(fixture.TestKey, testObj, opt);
+            await redisExplorer.SetAsync(fixture.TestKey, testObj, opt);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
