@@ -11,17 +11,17 @@ namespace RedisExplorer;
 public interface IRedisExplorer : IDistributedCache
 {
     /// <summary>
-    /// The options.
+    /// Gets the options.
     /// </summary>
     RedisCacheOptions Options { get; }
     
     /// <summary>
-    /// The json options.
+    /// Gets the json options.
     /// </summary>
     JsonSerializerOptions JsonSerializerOptions { get; }
         
     /// <summary>
-    /// The inner logger.
+    /// Gets the inner logger.
     /// </summary>
     ILogger Logger { get; }
     
