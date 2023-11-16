@@ -47,7 +47,6 @@ public interface IDistributedLock : IAsyncDisposable, IDisposable, IEquatable<ID
     /// <param name="other">Other.</param>
     /// <returns>Whether two locks are equal.</returns>
     bool IEquatable<IDistributedLock>.Equals(IDistributedLock? other) =>
-        other is not null && IsAcquired == other.IsAcquired && Resource == other.Resource &&
-        LockId == other.LockId &&
-        Status == other.Status;
+        other is not null && Resource == other.Resource &&
+        LockId == other.LockId;
 }

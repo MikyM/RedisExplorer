@@ -6,16 +6,19 @@ namespace RedisExplorer;
 [PublicAPI]
 public sealed class RedisExplorerDistributedLockFactory : IDistributedLockFactory
 {
-    private readonly RedLockFactory _redLockFactory;
+    /// <summary>
+    /// Gets the underlying <see cref="RedLockFactory"/>.
+    /// </summary>
+    public RedLockFactory RedLockFactory { get; }
     
     internal RedisExplorerDistributedLockFactory(RedLockFactory redLockFactory)
     {
-        _redLockFactory = redLockFactory;
+        RedLockFactory = redLockFactory;
     }
 
     /// <inheritdoc/>
     public IDistributedLock CreateLock(string resource, TimeSpan expiryTime)
-        => _redLockFactory.CreateLock(resource, expiryTime).ToDistributedLock();
+        => RedLockFactory.CreateLock(resource, expiryTime).ToDistributedLock();
 
     /// <inheritdoc/>
     public async Task<IDistributedLock> CreateLockAsync(string resource, TimeSpan expiryTime,
@@ -23,13 +26,13 @@ public sealed class RedisExplorerDistributedLockFactory : IDistributedLockFactor
     {
         cancellationToken.ThrowIfCancellationRequested();
         
-        return (await _redLockFactory.CreateLockAsync(resource, expiryTime)).ToDistributedLock();
+        return (await RedLockFactory.CreateLockAsync(resource, expiryTime)).ToDistributedLock();
     }
 
     /// <inheritdoc/>
     public IDistributedLock CreateLock(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime,
         CancellationToken cancellationToken = default)
-        => _redLockFactory.CreateLock(resource, expiryTime, waitTime, retryTime).ToDistributedLock();
+        => RedLockFactory.CreateLock(resource, expiryTime, waitTime, retryTime).ToDistributedLock();
 
     /// <inheritdoc/>
     public async Task<IDistributedLock> CreateLockAsync(string resource, TimeSpan expiryTime, TimeSpan waitTime,
@@ -38,19 +41,19 @@ public sealed class RedisExplorerDistributedLockFactory : IDistributedLockFactor
     {
         cancellationToken.ThrowIfCancellationRequested();
         
-        return (await _redLockFactory.CreateLockAsync(resource, expiryTime, waitTime, retryTime)).ToDistributedLock();
+        return (await RedLockFactory.CreateLockAsync(resource, expiryTime, waitTime, retryTime)).ToDistributedLock();
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
-        _redLockFactory.Dispose();
+        RedLockFactory.Dispose();
     }
 
     /// <inheritdoc />
     public ValueTask DisposeAsync()
     {
-        _redLockFactory.Dispose();
+        RedLockFactory.Dispose();
         return ValueTask.CompletedTask;
     }
 }
