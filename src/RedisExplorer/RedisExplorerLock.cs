@@ -81,8 +81,7 @@ public sealed class RedisExplorerLock : IDistributedLock, IEquatable<RedisExplor
         if (other is null)
             return false;
 
-        return IsAcquired == other.IsAcquired && Resource == other.Resource && LockId == other.LockId &&
-               Status == other.Status;
+        return Resource == other.Resource && LockId == other.LockId;
     }
 
     /// <summary>
@@ -101,7 +100,7 @@ public sealed class RedisExplorerLock : IDistributedLock, IEquatable<RedisExplor
     /// <inheritdoc />
     public override int GetHashCode()
     {
-        return HashCode.Combine(IsAcquired, Resource, LockId, Status);
+        return HashCode.Combine(Resource, LockId);
     }
 
     /// <summary>
