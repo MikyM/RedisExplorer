@@ -5,7 +5,7 @@
 /// </summary>
 [Flags]
 [PublicAPI]
-public enum RedisExplorerResultFlags
+public enum ExplorerResultFlags
 {
     /// <summary>
     /// None.

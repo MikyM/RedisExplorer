@@ -703,17 +703,17 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             Logger.LogError("Redis returned an error result - {Error}", (string?)result);
-            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.UnknownErrorOccurred);
+            return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.UnknownErrorOccurred);
         }
 
         if (result.IsNull)
         {
-            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.KeyNotFound);
+            return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.KeyNotFound);
         }
 
         if (getData)
         {
-            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.Success, (byte[]?)result);
+            return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.Success, (byte[]?)result);
         }
 
         if (!result.TryExtractString(out var resultString, out _, out _))
@@ -721,7 +721,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             Logger.LogWarning("Unexpected value type returned from Redis refresh script execution. Expected a string type. Actual: {ActualType}",
                 result.Resp3Type.ToString());
 
-            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+            return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
             
         if (resultString != LuaScripts.NoDataReturnedSuccessValue)
@@ -730,10 +730,10 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                 "Unexpected value returned from Redis refresh script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
                 LuaScripts.NoDataReturnedSuccessValue, resultString);
             
-            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+            return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
 
-        return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.Success);
+        return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.Success);
     }
     
     private async Task<RedisResult> GetAndRefreshAsync(string key, bool getData, CancellationToken token = default)
@@ -794,7 +794,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             Logger.LogError("Redis returned an error result - {Error}", result);
-            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnknownErrorOccurred);
+            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownErrorOccurred);
         }
 
         if (!result.TryExtractString(out var resultString, out _, out _))
@@ -802,7 +802,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             Logger.LogWarning("Unexpected value type returned from Redis set script execution. Expected a string type. Actual: {Actual}",
                 result.Resp3Type.ToString());
             
-            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+            return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
         
         if (resultString != LuaScripts.NoDataReturnedSuccessValue && resultString != LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)
@@ -810,15 +810,15 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             Logger.LogWarning("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
                 $"{LuaScripts.NoDataReturnedSuccessValue} or {LuaScripts.NoDataReturnedSuccessSetOverwrittenValue}", resultString);
             
-            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+            return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
 
         if (resultString == LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)
         {
-            return new ExplorerResult(key, result, RedisExplorerResultFlags.Success | RedisExplorerResultFlags.KeyOverwritten);
+            return new ExplorerResult(key, result, ExplorerResultFlags.Success | ExplorerResultFlags.KeyOverwritten);
         }
         
-        return new ExplorerResult(key, result, RedisExplorerResultFlags.Success);
+        return new ExplorerResult(key, result, ExplorerResultFlags.Success);
     }
     
     private void HandleSetResult(string key, RedisResult result)
@@ -1072,12 +1072,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             Logger.LogError("Redis returned an error result - {Error}", result);
-            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnknownErrorOccurred);
+            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownErrorOccurred);
         }
 
         if (result.IsNull)
         {
-            return new ExplorerResult(key, result, RedisExplorerResultFlags.KeyNotFound);
+            return new ExplorerResult(key, result, ExplorerResultFlags.KeyNotFound);
         }
 
         if (!result.TryExtractString(out var resultString, out _, out _))
@@ -1085,7 +1085,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             Logger.LogWarning("Unexpected value type returned from Redis remove script execution. Expected a string type. Actual: {Actual}",
                 result.Resp3Type.ToString());
             
-            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+            return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
         
         if (resultString != LuaScripts.NoDataReturnedSuccessValue)
@@ -1094,10 +1094,10 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                 "Unexpected value returned from Redis remove script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
                 LuaScripts.NoDataReturnedSuccessValue, resultString);
             
-            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+            return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
         
-        return new ExplorerResult(key, result, RedisExplorerResultFlags.Success);
+        return new ExplorerResult(key, result, ExplorerResultFlags.Success);
     }
 
     private RedisResult RemovePrivate(string key)

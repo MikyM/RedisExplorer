@@ -244,8 +244,8 @@ public class RedisExplorerTests
             var result = redisExplorer.Get(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound).And
-                .NotHaveFlag(RedisExplorerResultFlags.Success);
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound).And
+                .NotHaveFlag(ExplorerResultFlags.Success);
         }
         
         [Fact]
@@ -363,8 +363,8 @@ public class RedisExplorerTests
             var result = await redisExplorer.GetAsync(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound).And
-                .NotHaveFlag(RedisExplorerResultFlags.Success);
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound).And
+                .NotHaveFlag(ExplorerResultFlags.Success);
         }
         
         [Fact]
@@ -554,7 +554,7 @@ public class RedisExplorerTests
             var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyOverwritten);
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyOverwritten);
         }
         
         [Fact]
@@ -575,7 +575,7 @@ public class RedisExplorerTests
             var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().NotHaveFlag(RedisExplorerResultFlags.KeyOverwritten);
+            result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyOverwritten);
         }
     }
     
@@ -680,7 +680,7 @@ public class RedisExplorerTests
             var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyOverwritten);
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyOverwritten);
         }
         
         [Fact]
@@ -701,7 +701,7 @@ public class RedisExplorerTests
             var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().NotHaveFlag(RedisExplorerResultFlags.KeyOverwritten);
+            result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyOverwritten);
         }
     }
 
@@ -857,7 +857,7 @@ public class RedisExplorerTests
             var result = redisExplorer.Remove(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound);
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
         }
     }
     
@@ -949,7 +949,7 @@ public class RedisExplorerTests
             var result = await redisExplorer.RemoveAsync(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound);
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
         }
     }
     
@@ -1041,7 +1041,7 @@ public class RedisExplorerTests
             var result = redisExplorer.Refresh(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound);
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
         }
     }
     
@@ -1133,7 +1133,7 @@ public class RedisExplorerTests
             var result = await redisExplorer.RefreshAsync(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound);
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
         }
     }
 

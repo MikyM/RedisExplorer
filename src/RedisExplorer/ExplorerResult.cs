@@ -12,20 +12,20 @@ public record ExplorerResult : IExplorerResult
     /// <param name="key">The key.</param>
     /// <param name="redisResult">The Redis result.</param>
     /// <param name="flags">The flags.</param>
-    public ExplorerResult(string key, RedisResult redisResult, RedisExplorerResultFlags flags)
+    public ExplorerResult(string key, RedisResult redisResult, ExplorerResultFlags flags)
     {
         Key = key;
         RedisResult = redisResult;
         Flags = flags;
         
-        if ((Flags & RedisExplorerResultFlags.Success) == 0)
+        if ((Flags & ExplorerResultFlags.Success) == 0)
         {
-            Flags |= RedisExplorerResultFlags.Error;
+            Flags |= ExplorerResultFlags.Error;
         }
     }
 
     /// <inheritdoc/>
-    public bool IsSuccess => (Flags & RedisExplorerResultFlags.Success) == RedisExplorerResultFlags.Success;
+    public bool IsSuccess => (Flags & ExplorerResultFlags.Success) == ExplorerResultFlags.Success;
     
     /// <inheritdoc/>
     public string Key { get; init; }
@@ -34,7 +34,7 @@ public record ExplorerResult : IExplorerResult
     public RedisResult RedisResult { get; init; }
     
     /// <inheritdoc/>
-    public RedisExplorerResultFlags Flags { get; protected init; }
+    public ExplorerResultFlags Flags { get; protected init; }
 
     /// <inheritdoc/>
     public override string ToString() => $"{nameof(ExplorerResult)}: {Key} - {IsSuccess} - {Flags}";
@@ -52,11 +52,11 @@ public record ExplorerResult<TValue> : ExplorerResult, IExplorerResult<TValue> w
     /// <param name="redisResult">The Redis result.</param>
     /// <param name="flags">The flags.</param>
     /// <param name="value">The value.</param>
-    public ExplorerResult(string key, RedisResult redisResult, RedisExplorerResultFlags flags, TValue? value = null) : base(key, redisResult, flags)
+    public ExplorerResult(string key, RedisResult redisResult, ExplorerResultFlags flags, TValue? value = null) : base(key, redisResult, flags)
     {
         if (value is not null)
         {
-            Flags |= RedisExplorerResultFlags.NonNullValue;
+            Flags |= ExplorerResultFlags.NonNullValue;
         }
         
         Value = value;

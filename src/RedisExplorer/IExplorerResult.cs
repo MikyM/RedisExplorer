@@ -21,7 +21,7 @@ public interface IExplorerResult
     /// <summary>
     /// Flags associated with the result.
     /// </summary>
-    RedisExplorerResultFlags Flags { get; }
+    ExplorerResultFlags Flags { get; }
     
     /// <summary>
     /// Whether the operation is considered a success.
