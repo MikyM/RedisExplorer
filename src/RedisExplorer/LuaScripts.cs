@@ -27,24 +27,17 @@ public static class LuaScripts
     /// </summary>
     public const string SetScript = """
                                     
-                                                    redis.call('HSET', KEYS[1], 'absexp', ARGV[1], 'sldexp', ARGV[2], 'data', ARGV[4])
+                                                    local result = redis.call('HSET', KEYS[1], 'absexp', ARGV[1], 'sldexp', ARGV[2], 'data', ARGV[4])
                                                     if ARGV[3] ~= '-1' then
                                                       redis.call('EXPIRE', KEYS[1], ARGV[3])
                                                     end
-                                                    return '1'
+                                                    
+                                                    if result == 3 then
+                                                      return '1'
+                                                    end
+                                                    
+                                                    return '2'
                                     """;
-    
-    /// <summary>
-    /// The pre extended set script.
-    /// </summary>
-    public const string SetScriptPreExtendedSetCommand = """
-                                                         
-                                                                         redis.call('HMSET', KEYS[1], 'absexp', ARGV[1], 'sldexp', ARGV[2], 'data', ARGV[4])
-                                                                         if ARGV[3] ~= '-1' then
-                                                                           redis.call('EXPIRE', KEYS[1], ARGV[3])
-                                                                         end
-                                                                         return '1'
-                                                         """;
     
     // KEYS[1] = = key
     // ARGV[1] = whether to return data or only refresh - 0 for no data, 1 to return data
@@ -164,7 +157,20 @@ public static class LuaScripts
                                                         return '1'
                                         """;
     
-
+    /// <summary>
+    /// The conditional remove script.
+    /// </summary>
+    // KEYS[1] = = key
+    // RETURNS null if not exists, 1 if removed.
+    public const string RemoveScript = """
+                                       local removedCount = redis.call('UNLINK', KEYS[1])
+                                       if removedCount >= 1 then
+                                          return '1'
+                                       end
+                                                      
+                                       return nil
+                                       """;
+    
     /// <summary>
     /// Absolute exp key.
     /// </summary>
@@ -189,6 +195,10 @@ public static class LuaScripts
     /// Successful result no data value.
     /// </summary>
     public const string NoDataReturnedSuccessValue = "1";
+    /// <summary>
+    /// Successful result no data value when a set method overwritten existing data.
+    /// </summary>
+    public const string NoDataReturnedSuccessSetOverwrittenValue = "2";
     /// <summary>
     /// Not present value.
     /// </summary>

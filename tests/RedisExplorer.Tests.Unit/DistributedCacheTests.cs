@@ -9,13 +9,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using RedLockNet;
-using RedLockNet.SERedis;
 using StackExchange.Redis;
 
 namespace RedisExplorer.Tests.Unit;
 
 [UsedImplicitly]
-public class RedisExplorerTests
+public class DistributedCacheTests
 {
     [UsedImplicitly]
     public class Fixture
@@ -29,7 +28,7 @@ public class RedisExplorerTests
         public string TestString => "testString";
         public string TestKey => "testKey";
 
-        public IRedisExplorer GetTestInstance(IDatabase database, Mock<IConnectionMultiplexer> multiplexer,
+        public IDistributedCache GetTestInstance(IDatabase database, Mock<IConnectionMultiplexer> multiplexer,
             Mock<IDistributedLockFactory> lockFactoryMock, int majorVersion,
             Mock<TimeProvider> timeProviderMock, string? prefix = null)
         {
@@ -69,93 +68,6 @@ public class RedisExplorerTests
         }
     }
 
-
-    public class CreateLock2Arg(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public void ShouldProperlyCallInternalFactory()
-        {
-            // Arrange
-            var lockFactoryMock = fixture.GetLockFactoryMock();
-            var redisExplorer = fixture.GetTestInstance(fixture.GetDatabaseMock().Object, fixture.GetMultiplexerMock(), lockFactoryMock, 6, fixture.GetTimeProviderMock());
-        
-            // Act
-            _ = redisExplorer.CreateLock(fixture.TestKey, TimeSpan.FromHours(1));
-        
-            // Assert
-            lockFactoryMock.Verify(x => x.CreateLock(fixture.TestKey, It.Is<TimeSpan>(y => y.Hours == 1)), Times.Once);
-        }
-
-    }
-
-    public class CreateLockAsync2Arg(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public async Task ShouldProperlyCallInternalFactory()
-        {
-            // Arrange
-            var lockFactoryMock = fixture.GetLockFactoryMock();
-            var redisExplorer = fixture.GetTestInstance(fixture.GetDatabaseMock().Object, fixture.GetMultiplexerMock(), lockFactoryMock, 6, fixture.GetTimeProviderMock());
-        
-            // Act
-            _ = await redisExplorer.CreateLockAsync(fixture.TestKey, TimeSpan.FromHours(1));
-        
-            // Assert
-            lockFactoryMock.Verify(x => x.CreateLockAsync(fixture.TestKey, It.Is<TimeSpan>(y => y.Hours == 1)), Times.Once);
-        }
-    }
-
-    public class CreateLock4Arg(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public void ShouldProperlyCallInternalFactory()
-        {
-            // Arrange
-            var lockFactoryMock = fixture.GetLockFactoryMock();
-            var redisExplorer = fixture.GetTestInstance(fixture.GetDatabaseMock().Object, fixture.GetMultiplexerMock(), lockFactoryMock, 6, fixture.GetTimeProviderMock());
-        
-            // Act
-            _ = redisExplorer.CreateLock(fixture.TestKey, TimeSpan.FromHours(1), TimeSpan.FromHours(2), TimeSpan.FromHours(3));
-        
-            // Assert
-            lockFactoryMock.Verify(x => x.CreateLock(fixture.TestKey, It.Is<TimeSpan>(y => y.Hours == 1), It.Is<TimeSpan>(y => y.Hours == 2), It.Is<TimeSpan>(y => y.Hours == 3), CancellationToken.None), Times.Once);
-        }
-    }
-    
-    public class CreateLockAsync4Arg(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public async Task ShouldProperlyCallInternalFactory()
-        {
-            // Arrange
-            var lockFactoryMock = fixture.GetLockFactoryMock();
-            var redisExplorer = fixture.GetTestInstance(fixture.GetDatabaseMock().Object, fixture.GetMultiplexerMock(), lockFactoryMock, 6, fixture.GetTimeProviderMock());
-        
-            // Act
-            _ = await redisExplorer.CreateLockAsync(fixture.TestKey, TimeSpan.FromHours(1), TimeSpan.FromHours(2), TimeSpan.FromHours(3));
-        
-            // Assert
-            lockFactoryMock.Verify(x => x.CreateLockAsync(fixture.TestKey, It.Is<TimeSpan>(y => y.Hours == 1), It.Is<TimeSpan>(y => y.Hours == 2), It.Is<TimeSpan>(y => y.Hours == 3), CancellationToken.None), Times.Once);
-        }
-    }
-
-    public class GetPrefixedKey(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public void ShouldReturnCorrectKey()
-        {
-            // Arrange
-            const string prefix = "x:";
-            var redisExplorer = fixture.GetTestInstance(fixture.GetDatabaseMock().Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock(), prefix);
-        
-            // Act
-            var prefixedKey = redisExplorer.GetPrefixedKey(fixture.TestKey);
-        
-            // Assert
-            prefixedKey.Should().Be($"{prefix}{fixture.TestKey}");
-        }
-    }
-
     public class Get(Fixture fixture) : IClassFixture<Fixture>
     {
         [Fact]
@@ -169,10 +81,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
         
             // Act
-            _ = redisExplorer.Get(fixture.TestKey);
+            _ = distributedCache.Get(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.Is<string>(s => s == LuaScripts.GetAndRefreshScript), 
@@ -192,10 +104,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
         
             // Act
-            _ = redisExplorer.Get(fixture.TestKey);
+            _ = distributedCache.Get(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(), 
@@ -215,10 +127,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
         
             // Act
-            _ = redisExplorer.Get(fixture.TestKey);
+            _ = distributedCache.Get(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(), 
@@ -228,7 +140,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public void ShouldReturnExplorerResultWithNotFoundErrorWhenRedisReturnsNil()
+        public void ShouldReturnNullWhenRedisReturnsNil()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -238,18 +150,17 @@ public class RedisExplorerTests
                 It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.ReturnDataArg),
                 CommandFlags.None)).Returns(RedisResult.Create(RedisValue.Null));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
         
             // Act
-            var result = redisExplorer.Get(fixture.TestKey);
+            var result = distributedCache.Get(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound).And
-                .NotHaveFlag(RedisExplorerResultFlags.Success);
+            result.Should().BeNull();
         }
         
         [Fact]
-        public void ShouldReturnDefinedExplorerResultWhenRedisReturnsData()
+        public void ShouldReturnValueWhenRedisReturnsData()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -261,14 +172,14 @@ public class RedisExplorerTests
                 It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.ReturnDataArg),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
         
             // Act
-            var result = redisExplorer.Get(fixture.TestKey);
+            var result = distributedCache.Get(fixture.TestKey);
         
             // Assert
-            result.IsDefined(out var data).Should().BeTrue();
-            data.Should().BeEquivalentTo(bytes);
+            result.Should().NotBeNull();
+            result.Should().BeEquivalentTo(bytes);
         }
     }
 
@@ -285,11 +196,11 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
 
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
 
             // Act
-            _ = await redisExplorer.GetAsync(fixture.TestKey);
+            _ = await distributedCache.GetAsync(fixture.TestKey);
 
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.Is<string>(s => s == LuaScripts.GetAndRefreshScript),
@@ -309,11 +220,11 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
 
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
 
             // Act
-            _ = await redisExplorer.GetAsync(fixture.TestKey);
+            _ = await distributedCache.GetAsync(fixture.TestKey);
 
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
@@ -333,11 +244,11 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
 
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
 
             // Act
-            _ = await redisExplorer.GetAsync(fixture.TestKey);
+            _ = await distributedCache.GetAsync(fixture.TestKey);
 
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
@@ -347,7 +258,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public async Task ShouldReturnExplorerResultWithNotFoundErrorWhenRedisReturnsNil()
+        public async Task ShouldReturnNullWhenRedisReturnsNil()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -357,18 +268,17 @@ public class RedisExplorerTests
                 It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.ReturnDataArg),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(RedisValue.Null));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
         
             // Act
-            var result = await redisExplorer.GetAsync(fixture.TestKey);
+            var result = await distributedCache.GetAsync(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound).And
-                .NotHaveFlag(RedisExplorerResultFlags.Success);
+            result.Should().BeNull();
         }
         
         [Fact]
-        public async Task ShouldReturnDefinedExplorerResultWhenRedisReturnsData()
+        public async Task ShouldReturnValueWhenRedisReturnsData()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -380,78 +290,17 @@ public class RedisExplorerTests
                 It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.ReturnDataArg),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
         
             // Act
-            var result = await redisExplorer.GetAsync(fixture.TestKey);
+            var result = await distributedCache.GetAsync(fixture.TestKey);
         
             // Assert
-            result.IsDefined(out var data).Should().BeTrue();
-            data.Should().BeEquivalentTo(bytes);
+            result.Should().NotBeNull();
+            result.Should().BeEquivalentTo(bytes);
         }
     }
     
-    public class GetDeserialized(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public void ShouldDeserializeAValidResult()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-
-            var testObj = new TestObj(fixture.TestString);
-
-            var serialized = JsonSerializer.Serialize(testObj, fixture.GetJsonOptions());
-
-            databaseMock.Setup(x => x.ScriptEvaluate(It.Is<string>(s => s == LuaScripts.GetAndRefreshScript),
-                It.Is<RedisKey[]?>(k => k!.Length == 1 && k[0] == fixture.TestKey),
-                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.ReturnDataArg),
-                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(serialized)));
-        
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(),6, fixture.GetTimeProviderMock());
-        
-            // Act
-            var result = redisExplorer.Get<TestObj>(fixture.TestKey);
-        
-            // Assert
-            var serializedBytes = Encoding.UTF8.GetBytes(serialized);
-            var valueBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(result.Value));
-
-            valueBytes.Should().BeEquivalentTo(serializedBytes);
-        }
-    }
-
-    public class GetAsyncDeserialized(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public async Task ShouldDeserializeAValidResult()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-
-            var testObj = new TestObj(fixture.TestString);
-
-            var serialized = JsonSerializer.Serialize(testObj, fixture.GetJsonOptions());
-
-            databaseMock.Setup(x => x.ScriptEvaluateAsync(It.Is<string>(s => s == LuaScripts.GetAndRefreshScript),
-                It.Is<RedisKey[]?>(k => k!.Length == 1 && k[0] == fixture.TestKey),
-                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.ReturnDataArg),
-                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(serialized)));
-
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
-                fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
-
-            // Act
-            var result = await redisExplorer.GetAsync<TestObj>(fixture.TestKey);
-            
-            // Assert
-            var serializedBytes = Encoding.UTF8.GetBytes(serialized);
-            var valueBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(result.Value));
-
-            valueBytes.Should().BeEquivalentTo(serializedBytes);
-        }
-    }
-
     public class Set(Fixture fixture) : IClassFixture<Fixture>
     {
         [Fact]
@@ -464,20 +313,19 @@ public class RedisExplorerTests
                 It.IsAny<RedisKey[]?>(),
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
-
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
-                fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
-
+        
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+        
             // Act
-            redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
-
+            distributedCache.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
+        
             // Assert
-            databaseMock.Verify(x => x.ScriptEvaluateAsync(It.Is<string>(s => s == LuaScripts.SetScript),
+            databaseMock.Verify(x => x.ScriptEvaluate(It.Is<string>(s => s == LuaScripts.SetScript), 
                 It.IsAny<RedisKey[]?>(),
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None), Times.Once);
         }
-
+        
         [Fact]
         public void ShouldUseCorrectKeys()
         {
@@ -491,12 +339,12 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
 
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            redisExplorer.Set(fixture.TestKey, bytes, opt);
+            distributedCache.Set(fixture.TestKey, bytes, opt);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
@@ -518,12 +366,12 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
 
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            redisExplorer.Set(fixture.TestKey, bytes, opt);
+            distributedCache.Set(fixture.TestKey, bytes, opt);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
@@ -534,48 +382,6 @@ public class RedisExplorerTests
                                           && v[2] == LuaScripts.NotPresent
                                           && v[3] == bytes),
                 CommandFlags.None), Times.Once);
-        }
-        
-        [Fact]
-        public void ShouldReturnResultWithKeyOverwrittenFlag()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-
-            databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)));
-
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
-                fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
-
-            // Act
-            var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
-
-            // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyOverwritten);
-        }
-        
-        [Fact]
-        public void ShouldReturnResultWithoutKeyOverwrittenFlag()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-
-            databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(LuaScripts.NoDataReturnedSuccessValue)));
-
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
-                fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
-
-            // Act
-            var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
-
-            // Assert
-            result.Flags.Should().NotHaveFlag(RedisExplorerResultFlags.KeyOverwritten);
         }
     }
     
@@ -592,10 +398,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
         
             // Act
-            await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
+            await distributedCache.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.Is<string>(s => s == LuaScripts.SetScript), 
@@ -617,12 +423,12 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
 
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            await redisExplorer.SetAsync(fixture.TestKey, bytes, opt);
+            await distributedCache.SetAsync(fixture.TestKey, bytes, opt);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
@@ -644,12 +450,12 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
         
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
 
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            await redisExplorer.SetAsync(fixture.TestKey, bytes, opt);
+            await distributedCache.SetAsync(fixture.TestKey, bytes, opt);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
@@ -659,112 +465,6 @@ public class RedisExplorerTests
                                           && v[1] == LuaScripts.NotPresent
                                           && v[2] == LuaScripts.NotPresent
                                           && v[3] == bytes),
-                CommandFlags.None), Times.Once);
-        }
-        
-        [Fact]
-        public async Task ShouldReturnResultWithKeyOverwrittenFlag()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-
-            databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)));
-
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
-                fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
-
-            // Act
-            var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
-
-            // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyOverwritten);
-        }
-        
-        [Fact]
-        public async Task ShouldReturnResultWithoutKeyOverwrittenFlag()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-
-            databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(LuaScripts.NoDataReturnedSuccessValue)));
-
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
-                fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
-
-            // Act
-            var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
-
-            // Assert
-            result.Flags.Should().NotHaveFlag(RedisExplorerResultFlags.KeyOverwritten);
-        }
-    }
-
-    public class SetSerialized(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public void ShouldCorrectlySerialize()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-        
-            var testObj = new TestObj(fixture.TestString);
-
-            var serialized = JsonSerializer.SerializeToUtf8Bytes(testObj, fixture.GetJsonOptions());
-            
-            databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
-            
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 2, fixture.GetTimeProviderMock());
-
-            var opt = new DistributedCacheEntryOptions();
-        
-            // Act
-            redisExplorer.Set(fixture.TestKey, testObj, opt);
-        
-            // Assert
-            databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.Is<RedisValue[]?>(v => v![3] == serialized),
-                CommandFlags.None), Times.Once);
-        }
-    }
-    
-    public class SetAsyncSerialized(Fixture fixture) : IClassFixture<Fixture>
-    {
-        [Fact]
-        public async Task ShouldCorrectlySerialize()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-        
-            var testObj = new TestObj(fixture.TestString);
-
-            var serialized = JsonSerializer.SerializeToUtf8Bytes(testObj, fixture.GetJsonOptions());
-            
-            databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
-            
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 2, fixture.GetTimeProviderMock());
-
-            var opt = new DistributedCacheEntryOptions();
-        
-            // Act
-            await redisExplorer.SetAsync(fixture.TestKey, testObj, opt);
-        
-            // Assert
-            databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.Is<RedisValue[]?>(v => v![3] == serialized),
                 CommandFlags.None), Times.Once);
         }
     }
@@ -782,10 +482,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
         
             // Act
-            redisExplorer.Remove(fixture.TestKey);
+            distributedCache.Remove(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.Is<string>(s => s == LuaScripts.RemoveScript),
@@ -805,10 +505,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
         
             // Act
-            redisExplorer.Remove(fixture.TestKey);
+            distributedCache.Remove(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
@@ -828,36 +528,16 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
         
             // Act
-            redisExplorer.Remove(fixture.TestKey);
+            distributedCache.Remove(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
                 It.Is<RedisValue[]?>(v => v!.Length == 0),
                 CommandFlags.None), Times.Once);
-        }
-        
-        [Fact]
-        public void ShouldReturnResultWithKeyNotFoundFlag()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-        
-            databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).Returns(RedisResult.Create(RedisValue.Null));
-            
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
-        
-            // Act
-            var result = redisExplorer.Remove(fixture.TestKey);
-        
-            // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound);
         }
     }
     
@@ -874,10 +554,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
             
             // Act
-            await redisExplorer.RemoveAsync(fixture.TestKey);
+            await distributedCache.RemoveAsync(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.Is<string>(s => s == LuaScripts.RemoveScript),
@@ -897,10 +577,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
 
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
             
             // Act
-            await redisExplorer.RemoveAsync(fixture.TestKey);
+            await distributedCache.RemoveAsync(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
@@ -920,36 +600,16 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
         
             // Act
-            await redisExplorer.RemoveAsync(fixture.TestKey);
+            await distributedCache.RemoveAsync(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
                 It.Is<RedisValue[]?>(v => v!.Length == 0),
                 CommandFlags.None), Times.Once);
-        }
-        
-        [Fact]
-        public async Task ShouldReturnResultWithKeyNotFoundFlag()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-        
-            databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).ReturnsAsync(RedisResult.Create(RedisValue.Null));
-            
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
-        
-            // Act
-            var result = await redisExplorer.RemoveAsync(fixture.TestKey);
-        
-            // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound);
         }
     }
     
@@ -966,10 +626,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
         
             // Act
-            redisExplorer.Refresh(fixture.TestKey);
+            distributedCache.Refresh(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.Is<string>(s => s == LuaScripts.RefreshScript),
@@ -989,10 +649,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
         
             // Act
-            redisExplorer.Refresh(fixture.TestKey);
+            distributedCache.Refresh(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
@@ -1012,36 +672,16 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
         
             // Act
-            redisExplorer.Refresh(fixture.TestKey);
+            distributedCache.Refresh(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
                 It.Is<RedisValue[]?>(v => v!.Length == 0),
                 CommandFlags.None), Times.Once);
-        }
-        
-        [Fact]
-        public void ShouldReturnResultWithKeyNotFoundFlag()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-        
-            databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).Returns(RedisResult.Create(RedisValue.Null));
-            
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
-        
-            // Act
-            var result = redisExplorer.Refresh(fixture.TestKey);
-        
-            // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound);
         }
     }
     
@@ -1058,10 +698,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
             
             // Act
-            await redisExplorer.RefreshAsync(fixture.TestKey);
+            await distributedCache.RefreshAsync(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.Is<string>(s => s == LuaScripts.RefreshScript),
@@ -1081,10 +721,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
 
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
             
             // Act
-            await redisExplorer.RefreshAsync(fixture.TestKey);
+            await distributedCache.RefreshAsync(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
@@ -1104,10 +744,10 @@ public class RedisExplorerTests
                 It.IsAny<RedisValue[]?>(),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
             
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+            var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
         
             // Act
-            await redisExplorer.RefreshAsync(fixture.TestKey);
+            await distributedCache.RefreshAsync(fixture.TestKey);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
@@ -1115,27 +755,5 @@ public class RedisExplorerTests
                 It.Is<RedisValue[]?>(v => v!.Length == 0),
                 CommandFlags.None), Times.Once);
         }
-        
-        [Fact]
-        public async Task ShouldReturnResultWithKeyNotFoundFlag()
-        {
-            // Arrange
-            var databaseMock = fixture.GetDatabaseMock();
-        
-            databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
-                It.IsAny<RedisKey[]?>(),
-                It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).ReturnsAsync(RedisResult.Create(RedisValue.Null));
-            
-            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
-        
-            // Act
-            var result = await redisExplorer.RefreshAsync(fixture.TestKey);
-        
-            // Assert
-            result.Flags.Should().HaveFlag(RedisExplorerResultFlags.KeyNotFound);
-        }
     }
-
-    private sealed record TestObj(string Test);
 }

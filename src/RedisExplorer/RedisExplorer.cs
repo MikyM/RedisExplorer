@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -17,20 +16,20 @@ namespace RedisExplorer;
 /// <para>Uses <c>StackExchange.Redis</c> as the Redis client.</para>
 /// </summary>
 [PublicAPI]
-public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable
+public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposable, IAsyncDisposable
 {
     // combined keys - same hash keys fetched constantly; avoid allocating an array each time
     private static readonly RedisValue[] HashMembersReturnData = { LuaScripts.ReturnDataArg };
     private static readonly RedisValue[] HashMembersDontReturnData = Array.Empty<RedisValue>();
     
-    private ConcurrentDictionary<string,string> _knownInternalScripts = [];
+    private Dictionary<string,string> _knownInternalScripts = [];
     
     private void PreHashScripts()
     {
         _knownInternalScripts.TryAdd(nameof(LuaScripts.GetAndRefreshScript), CalculateScriptHash(LuaScripts.GetAndRefreshScript));
         _knownInternalScripts.TryAdd(nameof(LuaScripts.RefreshScript), CalculateScriptHash(LuaScripts.RefreshScript));
         _knownInternalScripts.TryAdd(nameof(LuaScripts.SetScript), CalculateScriptHash(LuaScripts.SetScript));
-        _knownInternalScripts.TryAdd(nameof(LuaScripts.SetScriptPreExtendedSetCommand), CalculateScriptHash(LuaScripts.SetScriptPreExtendedSetCommand));
+        _knownInternalScripts.TryAdd(nameof(LuaScripts.RemoveScript), CalculateScriptHash(LuaScripts.RemoveScript));
     }
     
     /// <summary>
@@ -42,11 +41,10 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         ? HashMembersReturnData
         : HashMembersDontReturnData;
 
-    private string GetAndRefreshScript(bool getData)
+    private string GetAndRefreshScript(bool getData, bool forceNonSHA = false)
     {
         string script;
-        var usingProxy = UsingProxy!.Value;
-        if (usingProxy)
+        if (UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies && !forceNonSHA)
         {
             script = getData
                 ? _knownInternalScripts[nameof(LuaScripts.GetAndRefreshScript)]
@@ -62,21 +60,31 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         return script;
     }
 
-    private string GetSetScript()
+    private string GetSetScript(bool forceNonSHA = false)
     {
         string script;
-        var usingProxy = UsingProxy!.Value;
-        if (usingProxy)
+        if (UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies && !forceNonSHA)
         {
-            script = UsingPreExtendedCommandSet!.Value
-                ? _knownInternalScripts[nameof(LuaScripts.SetScriptPreExtendedSetCommand)]
-                : _knownInternalScripts[nameof(LuaScripts.SetScript)];
+            script = _knownInternalScripts[nameof(LuaScripts.SetScript)];
         }
         else
         {
-            script = UsingPreExtendedCommandSet!.Value
-                ? LuaScripts.SetScriptPreExtendedSetCommand
-                :   LuaScripts.SetScript;
+            script = LuaScripts.SetScript;
+        }
+
+        return script;
+    }
+    
+    private string RemoveScript(bool forceNonSHA = false)
+    {
+        string script;
+        if (UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies && !forceNonSHA)
+        {
+            script = _knownInternalScripts[nameof(LuaScripts.RemoveScript)];
+        }
+        else
+        {
+            script = LuaScripts.RemoveScript;
         }
 
         return script;
@@ -95,8 +103,6 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     /// <inheritdoc/>
     public ConfigurationOptions? ConfigurationOptions { get; private set; }
     /// <inheritdoc/>
-    public bool? UsingPreExtendedCommandSet { get; private set; }
-    /// <inheritdoc/>
     public RedisKey Prefix { get; }
     /// <inheritdoc/>
     public TimeProvider TimeProvider { get; }
@@ -108,8 +114,6 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     public ILogger Logger { get; }
     
     private readonly ILoggerFactory _loggerFactory;
-
-    private readonly TimeProvider _timeProvider;
 
     private readonly SemaphoreSlim _connectionLock = new(initialCount: 1, maxCount: 1);
 
@@ -181,7 +185,6 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         JsonSerializerOptions = jsonSerializerOptionsAccessor.Get(JsonOptionsName);
         Logger = logger;
         _loggerFactory = loggerFactory;
-        _timeProvider = timeProvider;
 
         // This allows partitioning a single backend cache for use with multiple apps/services.
         var prefix = Options.Prefix;
@@ -203,15 +206,19 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     private static ConfigurationOptions GetOptions(IConnectionMultiplexer multiplexer)
         => ((ConfigurationOptions)ConfigurationOptionsGetter.GetValue((ConnectionMultiplexer)multiplexer)!).Clone();
     
-    /// <inheritdoc/>
-    public string CalculateScriptHash(string script)
+    /// <summary>
+    /// Calculates the hash of a script.
+    /// </summary>
+    /// <param name="script">Script.</param>
+    /// <returns>Hash.</returns>
+    public static string CalculateScriptHash(string script)
     {
         var scriptBytes = Encoding.ASCII.GetBytes(script);
         var hashBytes = SHA1.HashData(scriptBytes);
         var hashString = BitConverter.ToString(hashBytes).Replace("-", "");
         return hashString;
     }
-
+    
     /// <inheritdoc/>
     public IDatabase GetDatabase()
     {
@@ -331,100 +338,6 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     {
         CheckDisposed();
         return $"{Options.Prefix}{key}";
-    }
-
-    /// <inheritdoc />
-    public byte[]? Get(string key)
-    {
-        CheckDisposed();
-        
-        ArgumentNullException.ThrowIfNull(key);
-
-        return GetAndRefresh(key, getData: true);
-    }
-
-    /// <inheritdoc />
-    public Task<byte[]?> GetAsync(string key, CancellationToken token = default)
-    {
-        CheckDisposed();
-        
-        ArgumentNullException.ThrowIfNull(key);
-
-        token.ThrowIfCancellationRequested();
-
-        return GetAndRefreshAsync(key, getData: true, token: token);
-    }
-    
-    /// <inheritdoc />
-    public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
-    {
-        CheckDisposed();
-        
-        ArgumentNullException.ThrowIfNull(key);
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(options);
-
-        var (_, _, redisDatabase) = Connect();
-
-        var creationTime = _timeProvider.GetUtcNow();
-
-        var absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
-
-        redisDatabase.ScriptEvaluate(GetSetScript(), new[] { Prefix.Append(key) },
-            new RedisValue[]
-            {
-                absoluteExpiration?.ToUnixTimeSeconds() ?? LuaScripts.NotPresent,
-                options.SlidingExpiration?.TotalSeconds ?? LuaScripts.NotPresent,
-                GetExpirationInSeconds(creationTime, absoluteExpiration, options) ?? LuaScripts.NotPresent,
-                value
-            });
-    }
-    
-    /// <inheritdoc />
-    public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default)
-    {
-        CheckDisposed();
-        
-        ArgumentNullException.ThrowIfNull(key);
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(options);
-
-        token.ThrowIfCancellationRequested();
-
-        var (_, _, redisDatabase) = await ConnectAsync(token);
-
-        var creationTime = _timeProvider.GetUtcNow();
-
-        var absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
-        
-        await redisDatabase.ScriptEvaluateAsync(GetSetScript(), new[] { Prefix.Append(key) },
-            new RedisValue[]
-            {
-                absoluteExpiration?.ToUnixTimeSeconds() ?? LuaScripts.NotPresent,
-                options.SlidingExpiration?.TotalSeconds ?? LuaScripts.NotPresent,
-                GetExpirationInSeconds(creationTime, absoluteExpiration, options) ?? LuaScripts.NotPresent,
-                value
-            });
-    }
-
-    /// <inheritdoc />
-    public void Refresh(string key)
-    {
-        CheckDisposed();
-        ArgumentNullException.ThrowIfNull(key);
-        GetAndRefresh(key, getData: false);
-    }
-
-    /// <inheritdoc />
-    public async Task RefreshAsync(string key, CancellationToken token = default)
-    {
-        CheckDisposed();
-        
-        ArgumentNullException.ThrowIfNull(key);
-
-        token.ThrowIfCancellationRequested();
-
-        await GetAndRefreshAsync(key, getData: false, token: token);
     }
 
     [MemberNotNull(nameof(_lockFactory), nameof(_multiplexer), nameof(_redisDatabase))]
@@ -613,29 +526,6 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         CheckDisposed();
         
         _ = connection ?? throw new InvalidOperationException($"{nameof(connection)} cannot be null.");
-
-        try
-        {
-            foreach (var endPoint in connection.GetEndPoints())
-            {
-                if (connection.GetServer(endPoint).Version < ServerVersionWithExtendedSetCommand)
-                {
-                    UsingPreExtendedCommandSet = true;
-                }
-                else
-                {
-                    UsingPreExtendedCommandSet = false;
-                }
-            }
-        }
-        catch (NotSupportedException ex)
-        {
-            Logger.LogWarning(ex,"Could not determine the Redis server version. Falling back to use HMSET command instead of HSET");
-
-            // The GetServer call may not be supported with some configurations, in which
-            // case let's also fall back to using the older command.
-            UsingPreExtendedCommandSet = true;
-        }
     }
 
     private void TryRegisterProfiler(IConnectionMultiplexer connection)
@@ -649,58 +539,69 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             connection.RegisterProfiler(Options.ProfilingSession);
         }
     }
+    
+    /// <inheritdoc />
+    byte[]? IDistributedCache.Get(string key)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        
+        var result = GetAndRefresh(key, true);
 
-    private byte[]? GetAndRefresh(string key, bool getData)
+        return HandleGetAndRefreshResult(key, result, true);
+    }
+
+    /// <inheritdoc />
+    async Task<byte[]?> IDistributedCache.GetAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
         ArgumentNullException.ThrowIfNull(key);
 
-        var (_, _, redisDatabase) = Connect();
+        var result = await GetAndRefreshAsync(key, true, token);
 
-        var script = GetAndRefreshScript(getData);
+        return HandleGetAndRefreshResult(key, result, true);
+    }
+    
+    /// <inheritdoc />
+    public IExplorerResult<byte[]> Get(string key)
+    {
+        CheckDisposed();
         
-        // this won't be null after connecting
-        // if using proxy this would keep transmitting the whole script on every call, so we will sha1 manually it to cause an EVALSHA and trust redis to cache it on first EVAL
-        var isUsingProxy = UsingProxy!.Value;
-        if (isUsingProxy)
-        {
-            script = CalculateScriptHash(script);
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
-        // This also resets the LRU status as desired.
-        // Calculations regarding expiration done server side.
-        var result = redisDatabase.ScriptEvaluate(script,
-                new[] { Prefix.Append(key) },
-                GetHashFields(getData));
+        var result = GetAndRefresh(key, true);
 
-        if (result.IsNull)
-            return null;
-
-        if (getData)
-        {
-            return (byte[]?)result;
-        }
-
-        if (!result.TryExtractString(out var resultString, out _, out _))
-        {
-            Logger.LogWarning("Unexpected value returned from Redis script execution. Expected a string type. Actual: {ActualType}",
-                result.Resp3Type.ToString());
-
-            return null;
-        }
-            
-        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
-        {
-            Logger.LogWarning(
-                "Unexpected value returned from Redis script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
-                LuaScripts.NoDataReturnedSuccessValue, resultString);
-        }
-
-        return null;
+        return HandleGetAndRefreshResultAsExplorerResult(key, result, true);
     }
 
-    private async Task<byte[]?> GetAndRefreshAsync(string key, bool getData, CancellationToken token = default)
+    /// <inheritdoc />
+    public async Task<IExplorerResult<byte[]>> GetAsync(string key, CancellationToken token = default)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+
+        var result = await GetAndRefreshAsync(key, true, token);
+
+        return HandleGetAndRefreshResultAsExplorerResult(key, result, true);
+    }
+    
+    /// <inheritdoc />
+    void IDistributedCache.Refresh(string key)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        
+        var result = GetAndRefresh(key, false);
+
+        HandleGetAndRefreshResult(key, result, false);
+    }
+
+    /// <inheritdoc />
+    async Task IDistributedCache.RefreshAsync(string key, CancellationToken token)
     {
         CheckDisposed();
         
@@ -708,13 +609,68 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         token.ThrowIfCancellationRequested();
 
-        var (_, _, redisDatabase) = await ConnectAsync(token);
+        var result = await GetAndRefreshAsync(key, false, token);
 
+        HandleGetAndRefreshResult(key, result, false);
+    }
+    
+    /// <inheritdoc />
+    public IExplorerResult Refresh(string key)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        
+        var result = GetAndRefresh(key, false);
+
+        return HandleGetAndRefreshResultAsExplorerResult(key, result, false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IExplorerResult> RefreshAsync(string key, CancellationToken token = default)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+
+        token.ThrowIfCancellationRequested();
+
+        var result = await GetAndRefreshAsync(key, false, token);
+
+        return HandleGetAndRefreshResultAsExplorerResult(key, result, false);
+    }
+    
+    
+    private RedisResult GetAndRefresh(string key, bool getData)
+    {
+        var (_, _, redisDatabase) = Connect();
+
+        var actualKey = Prefix.Append(key);
+        
         // This also resets the LRU status as desired.
         // Calculations regarding expiration done server side.
-        var result = await redisDatabase.ScriptEvaluateAsync(GetAndRefreshScript(getData),
-                new[] { Prefix.Append(key) },
+        var result = redisDatabase.ScriptEvaluate(GetAndRefreshScript(getData),
+            new[] { actualKey },
+            GetHashFields(getData));
+
+        // this probably means the script was not loaded yet, lets retry with full script
+        if (ShouldRetryDueToSHAOptimization(result))
+        {
+            result = redisDatabase.ScriptEvaluate(GetAndRefreshScript(getData, true),
+                new[] { actualKey },
                 GetHashFields(getData));
+        }
+
+        return result;
+    }
+    
+    private byte[]? HandleGetAndRefreshResult(string key,  RedisResult result, bool getData)
+    {
+        if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
+        {
+            Logger.LogError("Redis returned an error result - {Error}", (string?)result);
+            return null;
+        }
         
         if (result.IsNull)
             return null;
@@ -726,7 +682,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value returned from Redis script execution. Expected a string type. Actual: {ActualType}",
+            Logger.LogWarning("Unexpected value type returned from Redis refresh script execution. Expected a string type. Actual: {ActualType}",
                 result.Resp3Type.ToString());
 
             return null;
@@ -735,36 +691,266 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         if (resultString != LuaScripts.NoDataReturnedSuccessValue)
         {
             Logger.LogWarning(
-                "Unexpected value returned from Redis script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
+                "Unexpected value returned from Redis script refresh execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
                 LuaScripts.NoDataReturnedSuccessValue, resultString);
         }
 
         return null;
     }
 
-    /// <inheritdoc />
-    public void Remove(string key)
+    private ExplorerResult<byte[]> HandleGetAndRefreshResultAsExplorerResult(string key,  RedisResult result, bool getData)
     {
-        CheckDisposed();
-        
-        ArgumentNullException.ThrowIfNull(key);
+        if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
+        {
+            Logger.LogError("Redis returned an error result - {Error}", (string?)result);
+            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.UnknownErrorOccurred);
+        }
 
-        var (_, _, redisDatabase)  = Connect();
-        
-        redisDatabase.KeyDelete(Prefix.Append(key));
+        if (result.IsNull)
+        {
+            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.KeyNotFound);
+        }
+
+        if (getData)
+        {
+            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.Success, (byte[]?)result);
+        }
+
+        if (!result.TryExtractString(out var resultString, out _, out _))
+        {
+            Logger.LogWarning("Unexpected value type returned from Redis refresh script execution. Expected a string type. Actual: {ActualType}",
+                result.Resp3Type.ToString());
+
+            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+        }
+            
+        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
+        {
+            Logger.LogWarning(
+                "Unexpected value returned from Redis refresh script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
+                LuaScripts.NoDataReturnedSuccessValue, resultString);
+            
+            return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+        }
+
+        return new ExplorerResult<byte[]>(key, result, RedisExplorerResultFlags.Success);
     }
-
-    /// <inheritdoc />
-    public async Task RemoveAsync(string key, CancellationToken token = default)
+    
+    private async Task<RedisResult> GetAndRefreshAsync(string key, bool getData, CancellationToken token = default)
     {
-        CheckDisposed();
-        
-        ArgumentNullException.ThrowIfNull(key);
+        token.ThrowIfCancellationRequested();
 
         var (_, _, redisDatabase) = await ConnectAsync(token);
+
+        var actualKey = Prefix.Append(key);
         
-        await redisDatabase.KeyDeleteAsync(Prefix.Append(key));
+        // This also resets the LRU status as desired.
+        // Calculations regarding expiration done server side.
+        var result = await redisDatabase.ScriptEvaluateAsync(GetAndRefreshScript(getData),
+            new[] { actualKey },
+            GetHashFields(getData));
+        
+        // this probably means the script was not loaded yet, lets retry with full script
+        if (ShouldRetryDueToSHAOptimization(result))
+        {
+            result = await redisDatabase.ScriptEvaluateAsync(GetAndRefreshScript(getData, true),
+                new[] { actualKey },
+                GetHashFields(getData));
+        }
+
+        return result;
     }
+
+    /// <inheritdoc />
+    void IDistributedCache.Set(string key, byte[] value, DistributedCacheEntryOptions options)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var result = SetPrivate(key, value, options);
+
+        HandleSetResult(key, result);
+    }
+    
+    /// <inheritdoc />
+    async Task IDistributedCache.SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var result = await SetPrivateAsync(key, value, options, token);
+
+        HandleSetResult(key, result);
+    }
+
+    private ExplorerResult HandleSetResultAsExplorerResult(string key, RedisResult result)
+    {
+        if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
+        {
+            Logger.LogError("Redis returned an error result - {Error}", result);
+            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnknownErrorOccurred);
+        }
+
+        if (!result.TryExtractString(out var resultString, out _, out _))
+        {
+            Logger.LogWarning("Unexpected value type returned from Redis set script execution. Expected a string type. Actual: {Actual}",
+                result.Resp3Type.ToString());
+            
+            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+        }
+        
+        if (resultString != LuaScripts.NoDataReturnedSuccessValue && resultString != LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)
+        {
+            Logger.LogWarning("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
+                $"{LuaScripts.NoDataReturnedSuccessValue} or {LuaScripts.NoDataReturnedSuccessSetOverwrittenValue}", resultString);
+            
+            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+        }
+
+        if (resultString == LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)
+        {
+            return new ExplorerResult(key, result, RedisExplorerResultFlags.Success | RedisExplorerResultFlags.KeyOverwritten);
+        }
+        
+        return new ExplorerResult(key, result, RedisExplorerResultFlags.Success);
+    }
+    
+    private void HandleSetResult(string key, RedisResult result)
+    {
+        if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
+        {
+            Logger.LogError("Redis returned an error result - {Error}", result);
+        }
+
+        if (!result.TryExtractString(out var resultString, out _, out _))
+        {
+            Logger.LogWarning("Unexpected value type returned from Redis set script execution. Expected a string type. Actual: {Actual}",
+                result.Resp3Type.ToString());
+        }
+        
+        if (resultString != LuaScripts.NoDataReturnedSuccessValue && resultString != LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)
+        {
+            Logger.LogWarning("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
+                $"{LuaScripts.NoDataReturnedSuccessValue} or {LuaScripts.NoDataReturnedSuccessSetOverwrittenValue}", resultString);
+        }
+    }
+    
+    /// <inheritdoc />
+    public IExplorerResult Set(string key, byte[] value, DistributedCacheEntryOptions options)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var result = SetPrivate(key, value, options);
+
+        return HandleSetResultAsExplorerResult(key, result);
+    }
+
+    /// <inheritdoc />
+    public async Task<IExplorerResult> SetAsync(string key, byte[] value, DistributedCacheEntryOptions options,
+        CancellationToken token = default)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var result = await SetPrivateAsync(key, value, options, token);
+
+        return HandleSetResultAsExplorerResult(key, result);
+    }
+
+    private async Task<RedisResult> SetPrivateAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default)
+    {
+        token.ThrowIfCancellationRequested();
+
+        var (_, _, redisDatabase) = await ConnectAsync(token);
+
+        var creationTime = TimeProvider.GetUtcNow();
+
+        var absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
+        var absoluteExpirationAsUnix = absoluteExpiration?.ToUnixTimeSeconds();
+        var slidingExpirationInSeconds = options.SlidingExpiration?.TotalSeconds;
+        var relativeExpirationInSeconds = GetExpirationInSeconds(creationTime, absoluteExpiration, options);
+
+        var actualKey = Prefix.Append(key);
+        
+        var result = await redisDatabase.ScriptEvaluateAsync(GetSetScript(), new[] { Prefix.Append(key) },
+            new RedisValue[]
+            {
+                absoluteExpirationAsUnix ?? LuaScripts.NotPresent,
+                slidingExpirationInSeconds ?? LuaScripts.NotPresent,
+                relativeExpirationInSeconds ?? LuaScripts.NotPresent,
+                value
+            });
+        
+        // this probably means the script was not loaded yet, lets retry with full script
+        if (ShouldRetryDueToSHAOptimization(result))
+        {
+            result = await redisDatabase.ScriptEvaluateAsync(GetSetScript(true), new[] { actualKey },
+                new RedisValue[]
+                {
+                    absoluteExpirationAsUnix ?? LuaScripts.NotPresent,
+                    slidingExpirationInSeconds ?? LuaScripts.NotPresent,
+                    relativeExpirationInSeconds ?? LuaScripts.NotPresent,
+                    value
+                });
+        }
+
+        return result;
+    }
+
+    private RedisResult SetPrivate(string key, byte[] value, DistributedCacheEntryOptions options)
+    {
+        var (_, _, redisDatabase) = Connect();
+
+        var creationTime = TimeProvider.GetUtcNow();
+
+        var absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
+        var absoluteExpirationAsUnix = absoluteExpiration?.ToUnixTimeSeconds();
+        var slidingExpirationInSeconds = options.SlidingExpiration?.TotalSeconds;
+        var relativeExpirationInSeconds = GetExpirationInSeconds(creationTime, absoluteExpiration, options);
+
+        var actualKey = Prefix.Append(key);
+
+        var result = redisDatabase.ScriptEvaluate(GetSetScript(), new[] { actualKey },
+            new RedisValue[]
+            {
+                absoluteExpirationAsUnix ?? LuaScripts.NotPresent,
+                slidingExpirationInSeconds ?? LuaScripts.NotPresent,
+                relativeExpirationInSeconds ?? LuaScripts.NotPresent,
+                value
+            });
+        
+        // this probably means the script was not loaded yet, lets retry with full script
+        if (ShouldRetryDueToSHAOptimization(result))
+        {
+            result = redisDatabase.ScriptEvaluate(GetSetScript(true), new[] { actualKey },
+                new RedisValue[]
+                {
+                    absoluteExpirationAsUnix ?? LuaScripts.NotPresent,
+                    slidingExpirationInSeconds ?? LuaScripts.NotPresent,
+                    relativeExpirationInSeconds ?? LuaScripts.NotPresent,
+                    value
+                });
+        }
+
+        return result;
+    }
+
+    private bool ShouldRetryDueToSHAOptimization(RedisResult result)
+        => UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies &&
+           result.Resp3Type == ResultType.Error;
 
     /// <inheritdoc />
     public long? GetExpirationInSeconds(DateTimeOffset creationTime, DateTimeOffset? absoluteExpiration, DistributedCacheEntryOptions options)
@@ -805,6 +991,230 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         }
 
         return options.AbsoluteExpiration;
+    }
+    
+    /// <inheritdoc />
+    void IDistributedCache.Remove(string key)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+
+        var result = RemovePrivate(key);
+        
+        HandleRemoveResult(key, result);
+    }
+
+    /// <inheritdoc />
+    async Task IDistributedCache.RemoveAsync(string key, CancellationToken token = default)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+
+        var result = await RemovePrivateAsync(key, token);
+        
+        HandleRemoveResult(key, result);
+    }
+
+    /// <inheritdoc />
+    public IExplorerResult Remove(string key)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+
+        var result = RemovePrivate(key);
+        
+        return HandleRemoveResultAsExplorerResult(key, result);
+    }
+
+    /// <inheritdoc />
+    public async Task<IExplorerResult> RemoveAsync(string key, CancellationToken token = default)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+
+        var result = await RemovePrivateAsync(key, token);
+        
+        return HandleRemoveResultAsExplorerResult(key, result);
+    }
+
+    private void HandleRemoveResult(string key, RedisResult result)
+    {
+        if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
+        {
+            Logger.LogError("Redis returned an error result - {Error}", result);
+        }
+
+        if (result.IsNull)
+        {
+            return;
+        }
+
+        if (!result.TryExtractString(out var resultString, out _, out _))
+        {
+            Logger.LogWarning("Unexpected value type returned from Redis remove script execution. Expected a string type. Actual: {Actual}",
+                result.Resp3Type.ToString());
+        }
+        
+        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
+        {
+            Logger.LogWarning(
+                "Unexpected value returned from Redis remove script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
+                LuaScripts.NoDataReturnedSuccessValue, resultString);
+        }
+    }
+    
+    private ExplorerResult HandleRemoveResultAsExplorerResult(string key, RedisResult result)
+    {
+        if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
+        {
+            Logger.LogError("Redis returned an error result - {Error}", result);
+            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnknownErrorOccurred);
+        }
+
+        if (result.IsNull)
+        {
+            return new ExplorerResult(key, result, RedisExplorerResultFlags.KeyNotFound);
+        }
+
+        if (!result.TryExtractString(out var resultString, out _, out _))
+        {
+            Logger.LogWarning("Unexpected value type returned from Redis remove script execution. Expected a string type. Actual: {Actual}",
+                result.Resp3Type.ToString());
+            
+            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+        }
+        
+        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
+        {
+            Logger.LogWarning(
+                "Unexpected value returned from Redis remove script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
+                LuaScripts.NoDataReturnedSuccessValue, resultString);
+            
+            return new ExplorerResult(key, result, RedisExplorerResultFlags.UnexpectedResultAcquired);
+        }
+        
+        return new ExplorerResult(key, result, RedisExplorerResultFlags.Success);
+    }
+
+    private RedisResult RemovePrivate(string key)
+    {
+        var (_, _, redisDatabase)  = Connect();
+
+        var actualKey = Prefix.Append(key);
+
+        var result = redisDatabase.ScriptEvaluate(RemoveScript(), new[] { actualKey },
+            HashMembersDontReturnData);
+        
+        // this probably means the script was not loaded yet, lets retry with full script
+        if (ShouldRetryDueToSHAOptimization(result))
+        {
+            result = redisDatabase.ScriptEvaluate(RemoveScript(true), new[] { actualKey },
+                HashMembersDontReturnData);
+        }
+        
+        return result;
+    }
+    
+    private async Task<RedisResult> RemovePrivateAsync(string key, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        
+        var (_, _, redisDatabase)  = await ConnectAsync(cancellationToken);
+
+        var actualKey = Prefix.Append(key);
+
+        var result = await redisDatabase.ScriptEvaluateAsync(RemoveScript(), new[] { actualKey },
+            HashMembersDontReturnData);
+        
+        // this probably means the script was not loaded yet, lets retry with full script
+        if (ShouldRetryDueToSHAOptimization(result))
+        {
+            result = await redisDatabase.ScriptEvaluateAsync(RemoveScript(true), new[] { actualKey },
+                HashMembersDontReturnData);
+        }
+
+        return result;
+    }
+    
+    /// <inheritdoc />
+    public Task<IExplorerResult> SetAsync<TValue>(string key, TValue value, DistributedCacheEntryOptions options,
+        CancellationToken token = default) where TValue : class
+    {
+        var serializedValue = SerializeToUtf8Bytes(value);
+        return SetAsync(key, serializedValue, options, token);
+    }
+    
+    /// <inheritdoc />
+    public Task<IExplorerResult> SetAsync<TValue>(string key, TValue value, CancellationToken token = default) where TValue : class
+        => SetAsync(key, value, Options.ExpirationOptions.GetEntryOptions<TValue>(), token);
+        
+    /// <inheritdoc />
+    public IExplorerResult Set<TValue>(string key, TValue value, DistributedCacheEntryOptions options) where TValue : class
+    {
+        var serializedValue = SerializeToUtf8Bytes(value);
+        return Set(key, serializedValue, options);
+    }
+    
+    /// <inheritdoc />
+    public IExplorerResult Set<TValue>(string key, TValue value) where TValue : class
+        => Set(key, value, Options.ExpirationOptions.GetEntryOptions<TValue>());
+    
+    /// <inheritdoc />
+    public async Task<IExplorerResult<TValue>> GetAsync<TValue>(string key, CancellationToken token = default) where TValue : class
+    {
+        var value = await GetAsync(key, token);
+
+        if (value.IsDefined(out var bytes))
+        {
+            return new ExplorerResult<TValue>(key, value.RedisResult, value.Flags, Deserialize<TValue>(bytes));
+        }
+        
+        return new ExplorerResult<TValue>(key, value.RedisResult, value.Flags);
+    }
+    
+    /// <inheritdoc />
+    public IExplorerResult<TValue> Get<TValue>(string key) where TValue : class
+    {
+        var value = Get(key);
+
+        if (value.IsDefined(out var bytes))
+        {
+            return new ExplorerResult<TValue>(key, value.RedisResult, value.Flags, Deserialize<TValue>(bytes));
+        }
+        
+        return new ExplorerResult<TValue>(key, value.RedisResult, value.Flags);
+    }
+    
+    /// <inheritdoc />
+    public byte[] SerializeToUtf8Bytes<TValue>(TValue value) where TValue : class
+    {
+        try
+        {
+            return JsonSerializer.SerializeToUtf8Bytes(value, JsonSerializerOptions);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error serializing the object of type {Type}", typeof(TValue));
+            throw;
+        }
+    }
+    
+    /// <inheritdoc />
+    public TValue Deserialize<TValue>(byte[] bytes) where TValue : class
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<TValue>(bytes, JsonSerializerOptions) ?? throw new JsonException("The deserialized value is null.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deserializing the object of type {Type}", typeof(TValue).Name);
+            throw;
+        }
     }
 
     /// <inheritdoc />

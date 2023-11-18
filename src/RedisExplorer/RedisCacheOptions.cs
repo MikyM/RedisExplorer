@@ -32,6 +32,11 @@ namespace RedisExplorer;
 public class RedisCacheOptions : IOptions<RedisCacheOptions>
 {
     /// <summary>
+    /// Whether to use bandwidth optimization when using a proxy.
+    /// </summary>
+    public bool UseBandwidthOptimizationForProxies { get; init; } = true;
+    
+    /// <summary>
     /// Gets or sets the connection options.
     /// </summary>
     public RedisCacheConnectionOptions ConnectionOptions { get; init; } = new("localhost");
