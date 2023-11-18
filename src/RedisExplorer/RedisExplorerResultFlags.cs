@@ -35,4 +35,12 @@ public enum RedisExplorerResultFlags
     /// The key has been overwritten.
     /// </summary>
     KeyOverwritten = 1 << 5,
+    /// <summary>
+    /// The result has a non null value.
+    /// </summary>
+    NonNullValue = 1 << 6,
+    /// <summary>
+    /// Error.
+    /// </summary>
+    Error = 1 << 7,
 }
