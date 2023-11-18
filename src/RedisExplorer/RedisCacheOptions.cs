@@ -20,10 +20,6 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-using Microsoft.Extensions.Logging;
-using RedLockNet.SERedis;
-using RedLockNet.SERedis.Configuration;
-using StackExchange.Redis.Configuration;
 using StackExchange.Redis.Profiling;
 // ReSharper disable PropertyCanBeMadeInitOnly.Global
 

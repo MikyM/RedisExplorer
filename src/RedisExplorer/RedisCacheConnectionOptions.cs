@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using RedLockNet;
 using RedLockNet.SERedis;
 using RedLockNet.SERedis.Configuration;
 using StackExchange.Redis.Configuration;
@@ -48,8 +49,8 @@ public class RedisCacheConnectionOptions : IOptions<RedisCacheConnectionOptions>
     /// Gets or sets a delegate to create the DistributedLockFactory instance.
     /// </summary>
     public Func<IConnectionMultiplexer,ILoggerFactory,Task<IDistributedLockFactory>> DistributedLockFactory { get; init; }
-        = (multiplexer,loggerFactory) => Task.FromResult<IDistributedLockFactory>(new RedisExplorerDistributedLockFactory(RedLockFactory.Create(new List<RedLockMultiplexer>()
-            { new(multiplexer) { RedisKeyFormat = "redis-explorer-lock:{0}" } }, loggerFactory)));
+        = (multiplexer,loggerFactory) => Task.FromResult<IDistributedLockFactory>(RedLockFactory.Create(new List<RedLockMultiplexer>()
+            { new(multiplexer) { RedisKeyFormat = "redis-explorer-lock:{0}" } }, loggerFactory));
     
     /// <summary>
     /// Gets or sets whether the instance returned by <see cref="DistributedLockFactory"/>  should be owned by (and disposed with) <see cref="IRedisExplorer"/>. This defaults to true.

@@ -4,9 +4,12 @@ using System.Text.Json;
 using FluentAssertions;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using RedLockNet;
+using RedLockNet.SERedis;
 using StackExchange.Redis;
 
 namespace RedisExplorer.Tests.Unit;
@@ -62,7 +65,7 @@ public class RedisExplorerTests
             var jsonOptMock = new Mock<IOptionsMonitor<JsonSerializerOptions>>();
             jsonOptMock.Setup(x => x.Get(RedisExplorer.JsonOptionsName)).Returns(jsonOpt);
 
-            return new RedisExplorer(timeProviderMock.Object, cacheOptMock.Object, jsonOptMock.Object);
+            return new RedisExplorer(timeProviderMock.Object, cacheOptMock.Object, jsonOptMock.Object, NullLoggerFactory.Instance.CreateLogger<RedisExplorer>(), NullLoggerFactory.Instance, new ConfigurationOptions());
         }
     }
 
@@ -98,7 +101,7 @@ public class RedisExplorerTests
             _ = await redisExplorer.CreateLockAsync(fixture.TestKey, TimeSpan.FromHours(1));
         
             // Assert
-            lockFactoryMock.Verify(x => x.CreateLockAsync(fixture.TestKey, It.Is<TimeSpan>(y => y.Hours == 1), CancellationToken.None), Times.Once);
+            lockFactoryMock.Verify(x => x.CreateLockAsync(fixture.TestKey, It.Is<TimeSpan>(y => y.Hours == 1)), Times.Once);
         }
     }
 
@@ -395,7 +398,7 @@ public class RedisExplorerTests
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(),6, fixture.GetTimeProviderMock());
         
             // Act
-            var result = redisExplorer.Get<TestObj>(fixture.TestKey);
+            var result = redisExplorer.GetSerialized<TestObj>(fixture.TestKey);
         
             // Assert
             result.Should().NotBeNull();
@@ -422,7 +425,7 @@ public class RedisExplorerTests
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(),6, fixture.GetTimeProviderMock());
         
             // Act
-            var result = redisExplorer.Get<TestObj>(fixture.TestKey);
+            var result = redisExplorer.GetSerialized<TestObj>(fixture.TestKey);
         
             // Assert
             result.Should().BeNull();
@@ -455,7 +458,7 @@ public class RedisExplorerTests
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
 
             // Act
-            var result = await redisExplorer.GetAsync<TestObj>(fixture.TestKey);
+            var result = await redisExplorer.GetSerializedAsync<TestObj>(fixture.TestKey);
 
             // Assert
             result.Should().NotBeNull();
@@ -483,7 +486,7 @@ public class RedisExplorerTests
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
 
             // Act
-            var result = await redisExplorer.GetAsync<TestObj>(fixture.TestKey);
+            var result = await redisExplorer.GetSerializedAsync<TestObj>(fixture.TestKey);
 
             // Assert
             result.Should().BeNull();
@@ -758,7 +761,7 @@ public class RedisExplorerTests
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            redisExplorer.Set(fixture.TestKey, testObj, opt);
+            redisExplorer.SetSerialized(fixture.TestKey, testObj, opt);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
@@ -785,7 +788,7 @@ public class RedisExplorerTests
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            await redisExplorer.SetAsync(fixture.TestKey, testObj, opt);
+            await redisExplorer.SetSerializedAsync(fixture.TestKey, testObj, opt);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),

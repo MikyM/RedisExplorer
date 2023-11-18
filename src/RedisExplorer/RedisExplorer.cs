@@ -1,10 +1,14 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using RedLockNet;
 
 namespace RedisExplorer;
 
@@ -15,13 +19,19 @@ namespace RedisExplorer;
 [PublicAPI]
 public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposable
 {
-    // Note that the "force reconnect" pattern as described https://learn.microsoft.com/en-us/azure/azure-cache-for-redis/cache-best-practices-connection#using-forcereconnect-with-stackexchangeredis
-    // can be enabled via the "Microsoft.AspNetCore.Caching.StackExchangeRedis.UseForceReconnect" app-context switch
-
-
     // combined keys - same hash keys fetched constantly; avoid allocating an array each time
     private static readonly RedisValue[] HashMembersReturnData = { LuaScripts.ReturnDataArg };
     private static readonly RedisValue[] HashMembersDontReturnData = Array.Empty<RedisValue>();
+    
+    private ConcurrentDictionary<string,string> _knownInternalScripts = [];
+    
+    private void PreHashScripts()
+    {
+        _knownInternalScripts.TryAdd(nameof(LuaScripts.GetAndRefreshScript), CalculateScriptHash(LuaScripts.GetAndRefreshScript));
+        _knownInternalScripts.TryAdd(nameof(LuaScripts.RefreshScript), CalculateScriptHash(LuaScripts.RefreshScript));
+        _knownInternalScripts.TryAdd(nameof(LuaScripts.SetScript), CalculateScriptHash(LuaScripts.SetScript));
+        _knownInternalScripts.TryAdd(nameof(LuaScripts.SetScriptPreExtendedSetCommand), CalculateScriptHash(LuaScripts.SetScriptPreExtendedSetCommand));
+    }
     
     /// <summary>
     /// Json options name.
@@ -32,9 +42,45 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         ? HashMembersReturnData
         : HashMembersDontReturnData;
 
-    private static string GetAndRefreshLuaScript(bool getData) => getData
-        ? LuaScripts.GetAndRefreshScript
-        : LuaScripts.RefreshScript;
+    private string GetAndRefreshScript(bool getData)
+    {
+        string script;
+        var usingProxy = UsingProxy!.Value;
+        if (usingProxy)
+        {
+            script = getData
+                ? _knownInternalScripts[nameof(LuaScripts.GetAndRefreshScript)]
+                : _knownInternalScripts[nameof(LuaScripts.RefreshScript)];
+        }
+        else
+        {
+            script = getData
+                ? LuaScripts.GetAndRefreshScript
+                : LuaScripts.RefreshScript;
+        }
+
+        return script;
+    }
+
+    private string GetSetScript()
+    {
+        string script;
+        var usingProxy = UsingProxy!.Value;
+        if (usingProxy)
+        {
+            script = UsingPreExtendedCommandSet!.Value
+                ? _knownInternalScripts[nameof(LuaScripts.SetScriptPreExtendedSetCommand)]
+                : _knownInternalScripts[nameof(LuaScripts.SetScript)];
+        }
+        else
+        {
+            script = UsingPreExtendedCommandSet!.Value
+                ? LuaScripts.SetScriptPreExtendedSetCommand
+                :   LuaScripts.SetScript;
+        }
+
+        return script;
+    }
     
     private static readonly Version ServerVersionWithExtendedSetCommand = new(4, 0, 0);
     
@@ -43,10 +89,17 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     private volatile IDatabase? _redisDatabase;
     
     private bool _disposed;
-    private string _setScript = LuaScripts.SetScript;
-    
-    private readonly RedisKey _prefix;
-    
+
+    /// <inheritdoc/>
+    public bool? UsingProxy => ConfigurationOptions?.Proxy != null && ConfigurationOptions.Proxy != Proxy.None;
+    /// <inheritdoc/>
+    public ConfigurationOptions? ConfigurationOptions { get; private set; }
+    /// <inheritdoc/>
+    public bool? UsingPreExtendedCommandSet { get; private set; }
+    /// <inheritdoc/>
+    public RedisKey Prefix { get; }
+    /// <inheritdoc/>
+    public TimeProvider TimeProvider { get; }
     /// <inheritdoc/>
     public RedisCacheOptions Options { get; }
     /// <inheritdoc/>
@@ -60,28 +113,6 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
     private readonly SemaphoreSlim _connectionLock = new(initialCount: 1, maxCount: 1);
 
-    // StackExchange.Redis will also be trying to reconnect internally,
-    // so limit how often we recreate the ConnectionMultiplexer instance
-    // in an attempt to reconnect
-
-    // Never reconnect within 60 seconds of the last attempt to connect or reconnect.
-    private readonly TimeSpan _reconnectMinInterval = TimeSpan.FromSeconds(60);
-    // Only reconnect if errors have occurred for at least the last 30 seconds.
-    // This count resets if there are no errors for 30 seconds
-    private readonly TimeSpan _reconnectErrorThreshold = TimeSpan.FromSeconds(30);
-
-    private static DateTimeOffset ReadTimeTicks(ref long field)
-    {
-        var ticks = Volatile.Read(ref field); // avoid torn values
-        return ticks == 0 ? DateTimeOffset.MinValue : new DateTimeOffset(ticks, TimeSpan.Zero);
-    }
-
-    private static void WriteTimeTicks(ref long field, DateTimeOffset value)
-    {
-        var ticks = value == DateTimeOffset.MinValue ? 0L : value.UtcTicks;
-        Volatile.Write(ref field, ticks); // avoid torn values
-    }
-
     /// <summary>
     /// Initializes a new instance of <see cref="RedisExplorer"/>.
     /// </summary>
@@ -93,6 +124,38 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         : this(timeProvider, optionsAccessor, jsonSerializerOptionsAccessor,
             NullLoggerFactory.Instance.CreateLogger<RedisExplorer>(), NullLoggerFactory.Instance)
     {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="RedisExplorer"/>.
+    /// </summary>
+    /// <param name="timeProvider">The time provider.</param>
+    /// <param name="optionsAccessor">The configuration options.</param>
+    /// <param name="jsonSerializerOptionsAccessor">The serialization options.</param>
+    /// <param name="configurationOptions">The Redis configuration options.</param>
+    public RedisExplorer(TimeProvider timeProvider, IOptions<RedisCacheOptions> optionsAccessor,
+        IOptionsMonitor<JsonSerializerOptions> jsonSerializerOptionsAccessor, ConfigurationOptions configurationOptions)
+        : this(timeProvider, optionsAccessor, jsonSerializerOptionsAccessor,
+            NullLoggerFactory.Instance.CreateLogger<RedisExplorer>(), NullLoggerFactory.Instance)
+    {
+        ConfigurationOptions = configurationOptions;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="RedisExplorer"/>.
+    /// </summary>
+    /// <param name="timeProvider">The time provider.</param>
+    /// <param name="optionsAccessor">The configuration options.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="jsonSerializerOptionsAccessor">The serialization options.</param>
+    /// <param name="loggerFactory">The logger factory.</param>
+    /// <param name="configurationOptions">The Redis configuration options.</param>
+    public RedisExplorer(TimeProvider timeProvider, IOptions<RedisCacheOptions> optionsAccessor,
+        IOptionsMonitor<JsonSerializerOptions> jsonSerializerOptionsAccessor,
+        ILogger logger, ILoggerFactory loggerFactory, ConfigurationOptions configurationOptions)
+        : this(timeProvider, optionsAccessor, jsonSerializerOptionsAccessor, logger, loggerFactory)
+    {
+        ConfigurationOptions = configurationOptions;
     }
 
     /// <summary>
@@ -113,6 +176,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         ArgumentNullException.ThrowIfNull(loggerFactory);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
+        TimeProvider = timeProvider;
         Options = optionsAccessor.Value;
         JsonSerializerOptions = jsonSerializerOptionsAccessor.Get(JsonOptionsName);
         Logger = logger;
@@ -126,8 +190,26 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             // SE.Redis allows efficient append of key-prefix scenarios, but we can help it
             // avoid some work/allocations by forcing the key-prefix to be a byte[]; SE.Redis
             // would do this itself anyway, using UTF8
-            _prefix = (RedisKey)Encoding.UTF8.GetBytes(prefix);
+            Prefix = (RedisKey)Encoding.UTF8.GetBytes(prefix);
         }
+        
+        PreHashScripts();
+    }
+
+    private static PropertyInfo ConfigurationOptionsGetter =
+        typeof(ConnectionMultiplexer).GetProperty("RawConfig", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException("Could not find RawConfig property on ConnectionMultiplexer type.");
+
+    private static ConfigurationOptions GetOptions(IConnectionMultiplexer multiplexer)
+        => ((ConfigurationOptions)ConfigurationOptionsGetter.GetValue((ConnectionMultiplexer)multiplexer)!).Clone();
+    
+    /// <inheritdoc/>
+    public string CalculateScriptHash(string script)
+    {
+        var scriptBytes = Encoding.ASCII.GetBytes(script);
+        var hashBytes = SHA1.HashData(scriptBytes);
+        var hashString = BitConverter.ToString(hashBytes).Replace("-", "");
+        return hashString;
     }
 
     /// <inheritdoc/>
@@ -191,7 +273,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     }
     
     /// <inheritdoc cref="IRedisExplorer.CreateLock(string, TimeSpan)"/>
-    public IDistributedLock CreateLock(string resource, TimeSpan expiryTime)
+    public IRedLock CreateLock(string resource, TimeSpan expiryTime)
     {
         CheckDisposed();
         
@@ -203,22 +285,26 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     }
 
     /// <inheritdoc cref="IRedisExplorer.CreateLockAsync(string, TimeSpan, CancellationToken)"/>
-    public async Task<IDistributedLock> CreateLockAsync(string resource, TimeSpan expiryTime, CancellationToken cancellationToken = default)
+    public async Task<IRedLock> CreateLockAsync(string resource, TimeSpan expiryTime, CancellationToken cancellationToken = default)
     {
         CheckDisposed();
+        
+        cancellationToken.ThrowIfCancellationRequested();
         
         ArgumentNullException.ThrowIfNull(resource);
 
         var (_, lockFactory, _) = await ConnectAsync(cancellationToken);
         
-        return (await lockFactory.CreateLockAsync(resource, expiryTime, cancellationToken));
+        return (await lockFactory.CreateLockAsync(resource, expiryTime));
     }
     
 
     /// <inheritdoc cref="IRedisExplorer.CreateLock(string, TimeSpan, TimeSpan, TimeSpan, CancellationToken)"/>
-    public IDistributedLock CreateLock(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime, CancellationToken cancellationToken = default)
+    public IRedLock CreateLock(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime, CancellationToken cancellationToken = default)
     {
         CheckDisposed();
+        
+        cancellationToken.ThrowIfCancellationRequested();
         
         ArgumentNullException.ThrowIfNull(resource);
         
@@ -228,7 +314,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     }
 
     /// <inheritdoc cref="IRedisExplorer.CreateLockAsync(string, TimeSpan, TimeSpan, TimeSpan, CancellationToken)"/>
-    public async Task<IDistributedLock> CreateLockAsync(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime,
+    public async Task<IRedLock> CreateLockAsync(string resource, TimeSpan expiryTime, TimeSpan waitTime, TimeSpan retryTime,
         CancellationToken cancellationToken = default)
     {
         CheckDisposed();
@@ -268,7 +354,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         return GetAndRefreshAsync(key, getData: true, token: token);
     }
-
+    
     /// <inheritdoc />
     public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
     {
@@ -284,7 +370,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         var absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
 
-        redisDatabase.ScriptEvaluate(_setScript, new[] { _prefix.Append(key) },
+        redisDatabase.ScriptEvaluate(GetSetScript(), new[] { Prefix.Append(key) },
             new RedisValue[]
             {
                 absoluteExpiration?.ToUnixTimeSeconds() ?? LuaScripts.NotPresent,
@@ -293,7 +379,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
                 value
             });
     }
-
+    
     /// <inheritdoc />
     public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default)
     {
@@ -310,8 +396,8 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         var creationTime = _timeProvider.GetUtcNow();
 
         var absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
-
-        await redisDatabase.ScriptEvaluateAsync(_setScript, new[] { _prefix.Append(key) },
+        
+        await redisDatabase.ScriptEvaluateAsync(GetSetScript(), new[] { Prefix.Append(key) },
             new RedisValue[]
             {
                 absoluteExpiration?.ToUnixTimeSeconds() ?? LuaScripts.NotPresent,
@@ -355,6 +441,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             Debug.Assert(_lockFactory is not null);
             Debug.Assert(_multiplexer is not null);
             Debug.Assert(_redisDatabase is not null);
+            Debug.Assert(ConfigurationOptions is not null);
             
             return new (multiplexer, lockFactory, redisDatabase);
         }
@@ -373,6 +460,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
                 Debug.Assert(_lockFactory is not null);
                 Debug.Assert(_multiplexer is not null);
                 Debug.Assert(_redisDatabase is not null);
+                Debug.Assert(ConfigurationOptions is not null);
                 
                 return new (multiplexer, lockFactory, redisDatabase);
             }
@@ -402,9 +490,16 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
                 
             _ = Interlocked.Exchange(ref _lockFactory, lockFactory);
             
+            if (ConfigurationOptions is null)
+            {
+                var options = GetOptions(multiplexer);
+                ConfigurationOptions = options;
+            }
+            
             Debug.Assert(_lockFactory is not null);
             Debug.Assert(_multiplexer is not null);
             Debug.Assert(_redisDatabase is not null);
+            Debug.Assert(ConfigurationOptions is not null);
             
             return new (multiplexer, lockFactory, redisDatabase);
         }
@@ -430,6 +525,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             Debug.Assert(_lockFactory is not null);
             Debug.Assert(_multiplexer is not null);
             Debug.Assert(_redisDatabase is not null);
+            Debug.Assert(ConfigurationOptions is not null);
             
             return ValueTask.FromResult<(IConnectionMultiplexer Multiplexer, IDistributedLockFactory LockFactory, IDatabase RedisDatabase)>(new (multiplexer, lockFactory, redisDatabase));
         }
@@ -440,6 +536,8 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
     [MemberNotNull(nameof(_lockFactory), nameof(_multiplexer), nameof(_redisDatabase))]
     private async ValueTask<(IConnectionMultiplexer Multiplexer, IDistributedLockFactory LockFactory, IDatabase RedisDatabase)> ConnectSlowAsync(CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        
         await _connectionLock.WaitAsync(token);
         
         try
@@ -454,6 +552,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
                 Debug.Assert(_lockFactory is not null);
                 Debug.Assert(_multiplexer is not null);
                 Debug.Assert(_redisDatabase is not null);
+                Debug.Assert(ConfigurationOptions is not null);
                 
                 return new (multiplexer, lockFactory, redisDatabase);
             }
@@ -483,9 +582,16 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
                 
             _ = Interlocked.Exchange(ref _lockFactory, lockFactory);
             
+            if (ConfigurationOptions is null)
+            {
+                var options = GetOptions(multiplexer);
+                ConfigurationOptions = options;
+            }
+            
             Debug.Assert(_lockFactory is not null);
             Debug.Assert(_multiplexer is not null);
             Debug.Assert(_redisDatabase is not null);
+            Debug.Assert(ConfigurationOptions is not null);
             
             // we can ignore null warnings here because we just set the values and Database/LockFactory can't be null if Multiplexer is not null
             return new (multiplexer, lockFactory, redisDatabase);
@@ -514,8 +620,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             {
                 if (connection.GetServer(endPoint).Version < ServerVersionWithExtendedSetCommand)
                 {
-                    _setScript = LuaScripts.SetScriptPreExtendedSetCommand;
-                    return;
+                    UsingPreExtendedCommandSet = true;
+                }
+                else
+                {
+                    UsingPreExtendedCommandSet = false;
                 }
             }
         }
@@ -525,7 +634,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
             // The GetServer call may not be supported with some configurations, in which
             // case let's also fall back to using the older command.
-            _setScript = LuaScripts.SetScriptPreExtendedSetCommand;
+            UsingPreExtendedCommandSet = true;
         }
     }
 
@@ -549,10 +658,20 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         var (_, _, redisDatabase) = Connect();
 
+        var script = GetAndRefreshScript(getData);
+        
+        // this won't be null after connecting
+        // if using proxy this would keep transmitting the whole script on every call, so we will sha1 manually it to cause an EVALSHA and trust redis to cache it on first EVAL
+        var isUsingProxy = UsingProxy!.Value;
+        if (isUsingProxy)
+        {
+            script = CalculateScriptHash(script);
+        }
+
         // This also resets the LRU status as desired.
         // Calculations regarding expiration done server side.
-        var result = redisDatabase.ScriptEvaluate(GetAndRefreshLuaScript(getData),
-                new[] { _prefix.Append(key) },
+        var result = redisDatabase.ScriptEvaluate(script,
+                new[] { Prefix.Append(key) },
                 GetHashFields(getData));
 
         if (result.IsNull)
@@ -565,17 +684,17 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value returned from Redis script execution. Expected: {ExpectedType}. Actual: {ActualType}",
-                $"{ResultType.SimpleString} or {ResultType.BulkString}", result.Resp3Type.ToString());
+            Logger.LogWarning("Unexpected value returned from Redis script execution. Expected a string type. Actual: {ActualType}",
+                result.Resp3Type.ToString());
 
             return null;
         }
             
-        if (resultString != LuaScripts.SuccessfulScriptNoDataReturnedValue)
+        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
         {
             Logger.LogWarning(
                 "Unexpected value returned from Redis script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
-                LuaScripts.SuccessfulScriptNoDataReturnedValue, resultString);
+                LuaScripts.NoDataReturnedSuccessValue, resultString);
         }
 
         return null;
@@ -593,8 +712,8 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         // This also resets the LRU status as desired.
         // Calculations regarding expiration done server side.
-        var result = await redisDatabase.ScriptEvaluateAsync(GetAndRefreshLuaScript(getData),
-                new[] { _prefix.Append(key) },
+        var result = await redisDatabase.ScriptEvaluateAsync(GetAndRefreshScript(getData),
+                new[] { Prefix.Append(key) },
                 GetHashFields(getData));
         
         if (result.IsNull)
@@ -607,17 +726,17 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value returned from Redis script execution. Expected: {ExpectedType}. Actual: {ActualType}",
-                $"{ResultType.SimpleString} or {ResultType.BulkString}", result.Resp3Type.ToString());
+            Logger.LogWarning("Unexpected value returned from Redis script execution. Expected a string type. Actual: {ActualType}",
+                result.Resp3Type.ToString());
 
             return null;
         }
             
-        if (resultString != LuaScripts.SuccessfulScriptNoDataReturnedValue)
+        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
         {
             Logger.LogWarning(
                 "Unexpected value returned from Redis script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
-                LuaScripts.SuccessfulScriptNoDataReturnedValue, resultString);
+                LuaScripts.NoDataReturnedSuccessValue, resultString);
         }
 
         return null;
@@ -632,7 +751,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         var (_, _, redisDatabase)  = Connect();
         
-        redisDatabase.KeyDelete(_prefix.Append(key));
+        redisDatabase.KeyDelete(Prefix.Append(key));
     }
 
     /// <inheritdoc />
@@ -644,10 +763,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
 
         var (_, _, redisDatabase) = await ConnectAsync(token);
         
-        await redisDatabase.KeyDeleteAsync(_prefix.Append(key));
+        await redisDatabase.KeyDeleteAsync(Prefix.Append(key));
     }
 
-    private static long? GetExpirationInSeconds(DateTimeOffset creationTime, DateTimeOffset? absoluteExpiration, DistributedCacheEntryOptions options)
+    /// <inheritdoc />
+    public long? GetExpirationInSeconds(DateTimeOffset creationTime, DateTimeOffset? absoluteExpiration, DistributedCacheEntryOptions options)
     {
         if (absoluteExpiration.HasValue && options.SlidingExpiration.HasValue)
         {
@@ -666,7 +786,8 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         return null;
     }
 
-    private static DateTimeOffset? GetAbsoluteExpiration(DateTimeOffset creationTime, DistributedCacheEntryOptions options)
+    /// <inheritdoc />
+    public DateTimeOffset? GetAbsoluteExpiration(DateTimeOffset creationTime, DistributedCacheEntryOptions options)
     {
         if (options.AbsoluteExpiration.HasValue && options.AbsoluteExpiration <= creationTime)
         {
@@ -735,7 +856,15 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
             
             if (Options.ConnectionOptions.IsDistributedLockFactoryOwned && lockFactory is not null)
             {
-                lockFactory.Dispose();
+                if (lockFactory is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+                // ReSharper disable once SuspiciousTypeConversion.Global
+                else if (lockFactory is IAsyncDisposable asyncDisposable)
+                {
+                    asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                }
             }
             
             if (Options.ConnectionOptions.IsConnectionMultiplexerOwned && multiplexer is not null)
@@ -759,7 +888,15 @@ public sealed class RedisExplorer : IRedisExplorer, IDisposable, IAsyncDisposabl
         {
             if (Options.ConnectionOptions.IsDistributedLockFactoryOwned && lockFactory is not null)
             {
-                await lockFactory.DisposeAsync();
+                // ReSharper disable once SuspiciousTypeConversion.Global
+                if (lockFactory is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else if (lockFactory is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
             
             if (Options.ConnectionOptions.IsConnectionMultiplexerOwned && multiplexer is not null)

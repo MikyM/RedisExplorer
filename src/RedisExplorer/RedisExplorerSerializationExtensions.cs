@@ -19,10 +19,10 @@ public static class RedisExplorerSerializationExtensions
     /// <param name="options">The cache options for the value.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public static Task SetAsync<TValue>(this IRedisExplorer explorer, string key, TValue value, DistributedCacheEntryOptions options,
+    public static Task SetSerializedAsync<TValue>(this IRedisExplorer explorer, string key, TValue value, DistributedCacheEntryOptions options,
         CancellationToken token = default)
     {
-        var serializedValue = TrySerialize(explorer, value);
+        var serializedValue = SerializeToUtf8Bytes(explorer, value);
         return explorer.SetAsync(key, serializedValue, options, token);
     }
     
@@ -34,8 +34,8 @@ public static class RedisExplorerSerializationExtensions
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public static Task SetAsync<TValue>(this IRedisExplorer explorer, string key, TValue value, CancellationToken token = default)
-        => SetAsync(explorer, key, value, explorer.Options.ExpirationOptions.GetEntryOptions<TValue>(), token);
+    public static Task SetSerializedAsync<TValue>(this IRedisExplorer explorer, string key, TValue value, CancellationToken token = default)
+        => SetSerializedAsync(explorer, key, value, explorer.Options.ExpirationOptions.GetEntryOptions<TValue>(), token);
         
     /// <summary>
     /// Sets a value with the given key serializing it beforehand.
@@ -44,9 +44,9 @@ public static class RedisExplorerSerializationExtensions
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="options">The cache options for the value.</param>
-    public static void Set<TValue>(this IRedisExplorer explorer, string key, TValue value, DistributedCacheEntryOptions options)
+    public static void SetSerialized<TValue>(this IRedisExplorer explorer, string key, TValue value, DistributedCacheEntryOptions options)
     {
-        var serializedValue = TrySerialize(explorer, value);
+        var serializedValue = SerializeToUtf8Bytes(explorer, value);
         explorer.Set(key, serializedValue, options);
     }
     
@@ -57,8 +57,8 @@ public static class RedisExplorerSerializationExtensions
     /// <param name="explorer">The explorer instance.</param>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
-    public static void Set<TValue>(this IRedisExplorer explorer, string key, TValue value)
-        => Set(explorer, key, value, explorer.Options.ExpirationOptions.GetEntryOptions<TValue>());
+    public static void SetSerialized<TValue>(this IRedisExplorer explorer, string key, TValue value)
+        => SetSerialized(explorer, key, value, explorer.Options.ExpirationOptions.GetEntryOptions<TValue>());
     
     /// <summary>
     /// Gets a value with the given key and deserializes it.
@@ -67,10 +67,16 @@ public static class RedisExplorerSerializationExtensions
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the located value or null.</returns>
-    public static async Task<TValue?> GetAsync<TValue>(this IRedisExplorer explorer, string key, CancellationToken token = default)
+    public static async Task<TValue?> GetSerializedAsync<TValue>(this IRedisExplorer explorer, string key, CancellationToken token = default)
     {
         var value = await explorer.GetAsync(key, token);
-        return TryDeserialize<TValue>(explorer, value);
+
+        if (value is null)
+        {
+            return default;
+        }
+        
+        return Deserialize<TValue>(explorer, value);
     }
     
     /// <summary>
@@ -79,13 +85,26 @@ public static class RedisExplorerSerializationExtensions
     /// <param name="explorer">The explorer instance.</param>
     /// <param name="key">A string identifying the requested value.</param>
     /// <returns>The located value or null.</returns>
-    public static TValue? Get<TValue>(this IRedisExplorer explorer, string key)
+    public static TValue? GetSerialized<TValue>(this IRedisExplorer explorer, string key)
     {
         var value = explorer.Get(key);
-        return TryDeserialize<TValue>(explorer, value);
+        
+        if (value is null)
+        {
+            return default;
+        }
+
+        return Deserialize<TValue>(explorer, value);
     }
     
-    private static byte[] TrySerialize<TValue>(IRedisExplorer explorer, TValue value)
+    /// <summary>
+    /// Serializes the value using the underlying <see cref="JsonSerializerOptions"/>.
+    /// </summary>
+    /// <param name="explorer">The explorer.</param>
+    /// <param name="value">The value to serialize.</param>
+    /// <typeparam name="TValue">The type of the value to serialize.</typeparam>
+    /// <returns>The bytes.</returns>
+    public static byte[] SerializeToUtf8Bytes<TValue>(this IRedisExplorer explorer, TValue value)
     {
         try
         {
@@ -98,14 +117,18 @@ public static class RedisExplorerSerializationExtensions
         }
     }
     
-    private static TValue? TryDeserialize<TValue>(IRedisExplorer explorer, byte[]? value)
+    /// <summary>
+    /// Deserializes the bytes to the given type using the underlying <see cref="JsonSerializerOptions"/>.
+    /// </summary>
+    /// <param name="explorer">The explorer.</param>
+    /// <param name="bytes">The bytes to deserialize.</param>
+    /// <typeparam name="TValue">The type of the value to deserialize the bytes to.</typeparam>
+    /// <returns>The value.</returns>
+    public static TValue Deserialize<TValue>(this IRedisExplorer explorer, byte[] bytes)
     {
-        if (value is null)
-            return default;
-        
         try
         {
-            return JsonSerializer.Deserialize<TValue>(value, explorer.JsonSerializerOptions) ?? throw new JsonException($"Error deserializing the object of type {typeof(TValue).Name}");
+            return JsonSerializer.Deserialize<TValue>(bytes, explorer.JsonSerializerOptions) ?? throw new JsonException("The deserialized value is null.");
         }
         catch (Exception ex)
         {
