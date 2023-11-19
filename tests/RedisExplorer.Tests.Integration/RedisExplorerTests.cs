@@ -330,7 +330,7 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            testObj.SetString(key, _singleInstanceFixture.TestString, options);
+            testObj.SetString(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
             // Assert
             var expiration = testObj.GetDatabase().KeyExpireTime(key);
@@ -360,7 +360,7 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            testObj.SetString(key, _singleInstanceFixture.TestString);
+            testObj.Set(key, _singleInstanceFixture.TestString);
             
             // Assert
             var expiration = testObj.GetDatabase().KeyExpireTime(key);
@@ -404,10 +404,10 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, options);
+            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
             // Assert
-            var expiration = await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var expiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
             expiration.Should().NotBeNull();
             expiration!.Value.Should().BeAfter(now.DateTime);
@@ -434,10 +434,10 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString);
+            await testObj.SetAsync(key, _singleInstanceFixture.TestString);
             
             // Assert
-            var expiration = await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var expiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
 
             expiration.Should().BeNull();
         }
@@ -473,13 +473,13 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            testObj.SetString(key, _singleInstanceFixture.TestString, options);
+            testObj.SetString(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
             var preGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            _ = testObj.GetString(key);
+            _ = testObj.Get(key);
             
             var postGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
             
@@ -510,13 +510,13 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var now = TimeProvider.System.GetUtcNow();
             
             // Act
-            testObj.SetString(key, _singleInstanceFixture.TestString, options);
+            testObj.SetString(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
             var preGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            _ = testObj.GetString(key);
+            _ = testObj.Get(key);
             
             var postGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
             
@@ -569,15 +569,15 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, options);
+            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
-            var preGetExpiration = await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var preGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            _ = await testObj.GetStringAsync(key);
+            _ = await testObj.GetAsync(key);
             
-            var postGetExpiration = await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var postGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
             // Assert
             preGetExpiration.Should().NotBeNull();
@@ -605,15 +605,15 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var now = TimeProvider.System.GetUtcNow();
             
             // Act
-            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, options);
+            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
-            var preGetExpiration =  await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var preGetExpiration =  await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            _ = await testObj.GetStringAsync(key);
+            _ = await testObj.GetAsync(key);
             
-            var postGetExpiration = await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var postGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
             // Assert
             var exp = options.SlidingExpiration.HasValue 
@@ -665,7 +665,7 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            testObj.SetString(key, _singleInstanceFixture.TestString, options);
+            testObj.SetString(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
             var preGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
 
@@ -702,7 +702,7 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var now = TimeProvider.System.GetUtcNow();
             
             // Act
-            testObj.SetString(key, _singleInstanceFixture.TestString, options);
+            testObj.SetString(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
             var preGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
 
@@ -761,15 +761,15 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, options);
+            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
-            var preGetExpiration = await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var preGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
             await testObj.RefreshAsync(key);
             
-            var postGetExpiration = await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var postGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
             // Assert
             preGetExpiration.Should().NotBeNull();
@@ -780,10 +780,11 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
         public static object[][] SlidingExpirationTestCases()
             => new[]
             {
-                new object[] { new DistributedCacheEntryOptions(){ SlidingExpiration = TimeSpan.FromMinutes(1) } },
-                new object[] { new DistributedCacheEntryOptions(){ AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5), AbsoluteExpiration = TimeProvider.System.GetUtcNow().Add(TimeSpan.FromMinutes(10)), SlidingExpiration = TimeSpan.FromMinutes(1)} },
-                new object[] { new DistributedCacheEntryOptions(){ AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5), SlidingExpiration = TimeSpan.FromMinutes(1) } },
-                new object[] { new DistributedCacheEntryOptions(){ SlidingExpiration = TimeSpan.FromMinutes(1), AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) } }
+                new object[] { new DistributedCacheEntryOptions(){  SlidingExpiration = TimeSpan.FromMinutes(1) } },
+                new object[] { new DistributedCacheEntryOptions(){   AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5), 
+                    AbsoluteExpiration = TimeProvider.System.GetUtcNow().Add(TimeSpan.FromMinutes(10)), SlidingExpiration = TimeSpan.FromMinutes(1)} },
+                new object[] { new DistributedCacheEntryOptions(){   AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5), SlidingExpiration = TimeSpan.FromMinutes(1) } },
+                new object[] { new DistributedCacheEntryOptions(){  SlidingExpiration = TimeSpan.FromMinutes(1), AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) } }
             };
         
         [Theory]
@@ -797,15 +798,15 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var now = TimeProvider.System.GetUtcNow();
             
             // Act
-            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, options);
+            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
-            var preGetExpiration =  await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var preGetExpiration =  await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
             await testObj.RefreshAsync(key);
             
-            var postGetExpiration = await (await testObj.GetDatabaseAsync()).KeyExpireTimeAsync(key);
+            var postGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
             // Assert
             var exp = options.SlidingExpiration.HasValue 

@@ -17,16 +17,17 @@ public record ExplorerResult : IExplorerResult
         Key = key;
         RedisResult = redisResult;
         Flags = flags;
-        
-        if ((Flags & ExplorerResultFlags.Success) == 0)
-        {
-            Flags |= ExplorerResultFlags.Error;
-        }
     }
 
     /// <inheritdoc/>
-    public bool IsSuccess => (Flags & ExplorerResultFlags.Success) == ExplorerResultFlags.Success;
+    public bool IsSuccess => (Flags & ExplorerResultFlags.Success) != 0;
+
+    /// <inheritdoc/>
+    public bool RedisErrorOccurred => (Flags & ExplorerResultFlags.RedisError) != 0;
     
+    /// <inheritdoc/>
+    public bool ProcessRequirementErrorOccurred => (Flags & ExplorerResultFlags.ProcessRequirementError) != 0;
+
     /// <inheritdoc/>
     public string Key { get; init; }
     
@@ -72,4 +73,7 @@ public record ExplorerResult<TValue> : ExplorerResult, IExplorerResult<TValue> w
 
     /// <inheritdoc />
     public TValue? Value { get; init; }
+    
+    /// <inheritdoc/>
+    public override string ToString() => $"{nameof(ExplorerResult)}<{typeof(TValue).Name}>: {Key} - {IsSuccess} - {Flags} - {(Value is null ? "null" : "non-null")}";
 }

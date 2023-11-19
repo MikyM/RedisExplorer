@@ -12,13 +12,13 @@ public enum ExplorerResultFlags
     /// </summary>
     None = 0,
     /// <summary>
-    /// Success.
+    /// The operation has completed with no Redis or process requirement related errors.
     /// </summary>
     Success = 1 << 0,
     /// <summary>
-    /// An unexpected result was returned.
+    /// The operation outcome is unknown due to an unknown result acquired from process execution.
     /// </summary>
-    UnexpectedResultAcquired = 1 << 1,
+    UnknownOutcome = 1 << 1,
     /// <summary>
     /// The key was not found.
     /// </summary>
@@ -40,11 +40,15 @@ public enum ExplorerResultFlags
     /// </summary>
     NonNullValue = 1 << 6,
     /// <summary>
-    /// Error.
+    /// The operation was not completed due to a process requirement.
     /// </summary>
-    Error = 1 << 7,
+    ProcessRequirementError = 1 << 7,
+    /// <summary>
+    /// The operation was not completed due to an Error returned by Redis.
+    /// </summary>
+    RedisError = 1 << 8,
     /// <summary>
     /// Key has no sliding expiration.
     /// </summary>
-    NoSlidingExpiration = 1 << 8,
+    NoSlidingExpiration = 1 << 9
 }

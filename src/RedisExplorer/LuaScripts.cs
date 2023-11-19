@@ -46,7 +46,7 @@ public static class LuaScripts
                                     """;
     
     // KEYS[1] = = key
-    // ARGV[1] = whether to return data or only refresh - 0 for no data, 1 to return data
+    // ARGV[1] = whether to also refresh the expiration (1 or -1)
     // RETURNS null if not found, 1 if successful and no data returned, or data if successful and data returned
     // this order should not change LUA script depends on it
     /// <summary>
@@ -75,13 +75,13 @@ public static class LuaScripts
                                               
                                                               local sldexp = tonumber(result['sldexp'])
                                                               local absexp = tonumber(result['absexp'])
+                                                              
+                                                              if ARGV[1] == -1 then
+                                                                  return '1'
+                                                              end
                                               
                                                               if sldexp == -1 then
-                                                                if ARGV[1] == '1' then
-                                                                  return result['data']
-                                                                else
                                                                   return '1'
-                                                                end
                                                               end
                                               
                                                               local time = tonumber(redis.call('TIME')[1])
@@ -192,7 +192,7 @@ public static class LuaScripts
     /// <summary>
     /// Return data arg value.
     /// </summary>
-    public const string ReturnDataArg = "1";
+    public const string AlsoRefreshArg = "1";
     /// <summary>
     /// Don't return data arg value.
     /// </summary>
@@ -200,7 +200,7 @@ public static class LuaScripts
     /// <summary>
     /// Abort if exists.
     /// </summary>
-    public const string AbortSetIfExistsArg = "1";
+    public const string WithoutKeyOverwriteArg = "1";
     /// <summary>
     /// Successful result no data value.
     /// </summary>
