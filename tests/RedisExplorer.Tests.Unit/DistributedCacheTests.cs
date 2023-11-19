@@ -376,11 +376,12 @@ public class DistributedCacheTests
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
-                It.Is<RedisValue[]?>(v => v!.Length == 4
+                It.Is<RedisValue[]?>(v => v!.Length == 5
                                           && v[0] == LuaScripts.NotPresent
                                           && v[1] == LuaScripts.NotPresent
                                           && v[2] == LuaScripts.NotPresent
-                                          && v[3] == bytes),
+                                          && v[3] == bytes
+                                          && v[4] == LuaScripts.NotPresent),
                 CommandFlags.None), Times.Once);
         }
     }
@@ -460,11 +461,12 @@ public class DistributedCacheTests
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
-                It.Is<RedisValue[]?>(v => v!.Length == 4
+                It.Is<RedisValue[]?>(v => v!.Length == 5
                                           && v[0] == LuaScripts.NotPresent
                                           && v[1] == LuaScripts.NotPresent
                                           && v[2] == LuaScripts.NotPresent
-                                          && v[3] == bytes),
+                                          && v[3] == bytes
+                                          && v[4] == LuaScripts.NotPresent),
                 CommandFlags.None), Times.Once);
         }
     }

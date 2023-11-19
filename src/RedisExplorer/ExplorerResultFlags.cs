@@ -43,4 +43,8 @@ public enum ExplorerResultFlags
     /// Error.
     /// </summary>
     Error = 1 << 7,
+    /// <summary>
+    /// Key has no sliding expiration.
+    /// </summary>
+    NoSlidingExpiration = 1 << 8,
 }

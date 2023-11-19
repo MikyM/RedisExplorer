@@ -228,7 +228,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public void ShouldReturnExplorerResultWithNotFoundErrorWhenRedisReturnsNil()
+        public void ShouldReturnExplorerResultWithNotFoundFlagWhenRedisReturnsNil()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -347,7 +347,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public async Task ShouldReturnExplorerResultWithNotFoundErrorWhenRedisReturnsNil()
+        public async Task ShouldReturnExplorerResultWithNotFoundFlagWhenRedisReturnsNil()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -505,8 +505,10 @@ public class RedisExplorerTests
                 CommandFlags.None), Times.Once);
         }
         
-        [Fact]
-        public void ShouldUseCorrectValues()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void ShouldUseCorrectValues(bool abortIfExists)
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -523,16 +525,17 @@ public class RedisExplorerTests
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            redisExplorer.Set(fixture.TestKey, bytes, opt);
+            redisExplorer.Set(fixture.TestKey, bytes, opt, abortIfExists);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
-                It.Is<RedisValue[]?>(v => v!.Length == 4
+                It.Is<RedisValue[]?>(v => v!.Length == 5
                                           && v[0] == LuaScripts.NotPresent
                                           && v[1] == LuaScripts.NotPresent
                                           && v[2] == LuaScripts.NotPresent
-                                          && v[3] == bytes),
+                                          && v[3] == bytes
+                                          && v[4] == (abortIfExists ? LuaScripts.AbortSetIfExistsArg : LuaScripts.NotPresent)),
                 CommandFlags.None), Times.Once);
         }
         
@@ -545,7 +548,7 @@ public class RedisExplorerTests
             databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
                 It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)));
+                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(LuaScripts.SetOverwrittenReturn)));
 
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
@@ -558,7 +561,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public void ShouldReturnResultWithoutKeyOverwrittenFlag()
+        public void ShouldReturnResultWithOnlySuccessFlag()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -566,7 +569,7 @@ public class RedisExplorerTests
             databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
                 It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(LuaScripts.NoDataReturnedSuccessValue)));
+                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(LuaScripts.SuccessReturn)));
 
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
@@ -575,7 +578,30 @@ public class RedisExplorerTests
             var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.Success);
             result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyOverwritten);
+            result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyCollision);
+        }
+        
+        [Fact]
+        public void ShouldReturnResultWithKeyCollisionFlag()
+        {
+            // Arrange
+            var databaseMock = fixture.GetDatabaseMock();
+
+            databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
+                It.IsAny<RedisKey[]?>(),
+                It.IsAny<RedisValue[]?>(),
+                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(LuaScripts.SetCollisionReturn)));
+
+            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
+                fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+
+            // Act
+            var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
+
+            // Assert
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyCollision);
         }
     }
     
@@ -631,8 +657,10 @@ public class RedisExplorerTests
                 CommandFlags.None), Times.Once);
         }
         
-        [Fact]
-        public async Task ShouldUseCorrectValues()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldUseCorrectValues(bool abortIfExists)
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -649,16 +677,17 @@ public class RedisExplorerTests
             var opt = new DistributedCacheEntryOptions();
         
             // Act
-            await redisExplorer.SetAsync(fixture.TestKey, bytes, opt);
+            await redisExplorer.SetAsync(fixture.TestKey, bytes, opt, abortIfExists);
         
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
-                It.Is<RedisValue[]?>(v => v!.Length == 4
+                It.Is<RedisValue[]?>(v => v!.Length == 5
                                           && v[0] == LuaScripts.NotPresent
                                           && v[1] == LuaScripts.NotPresent
                                           && v[2] == LuaScripts.NotPresent
-                                          && v[3] == bytes),
+                                          && v[3] == bytes
+                                          && v[4] == (abortIfExists ? LuaScripts.AbortSetIfExistsArg : LuaScripts.NotPresent)),
                 CommandFlags.None), Times.Once);
         }
         
@@ -671,7 +700,7 @@ public class RedisExplorerTests
             databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
                 It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)));
+                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(LuaScripts.SetOverwrittenReturn)));
 
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
@@ -684,7 +713,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public async Task ShouldReturnResultWithoutKeyOverwrittenFlag()
+        public async Task ShouldReturnResultWithOnlySuccessFlag()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -692,7 +721,7 @@ public class RedisExplorerTests
             databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
                 It.IsAny<RedisValue[]?>(),
-                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(LuaScripts.NoDataReturnedSuccessValue)));
+                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(LuaScripts.SuccessReturn)));
 
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
                 fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
@@ -701,7 +730,30 @@ public class RedisExplorerTests
             var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.Success);
             result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyOverwritten);
+            result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyCollision);
+        }
+        
+        [Fact]
+        public async Task ShouldReturnResultWithKeyCollisionFlag()
+        {
+            // Arrange
+            var databaseMock = fixture.GetDatabaseMock();
+
+            databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
+                It.IsAny<RedisKey[]?>(),
+                It.IsAny<RedisValue[]?>(),
+                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(LuaScripts.SetCollisionReturn)));
+
+            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(),
+                fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
+
+            // Act
+            var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
+
+            // Assert
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyCollision);
         }
     }
 
@@ -1043,6 +1095,26 @@ public class RedisExplorerTests
             // Assert
             result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
         }
+        
+        [Fact]
+        public void ShouldReturnResultWithNoSlidingExpirationFlag()
+        {
+            // Arrange
+            var databaseMock = fixture.GetDatabaseMock();
+        
+            databaseMock.Setup(x => x.ScriptEvaluate(It.IsAny<string>(),
+                It.IsAny<RedisKey[]?>(),
+                It.IsAny<RedisValue[]?>(),
+                CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(LuaScripts.RefreshNoSlidingExpirationReturn)));
+            
+            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+        
+            // Act
+            var result = redisExplorer.Refresh(fixture.TestKey);
+        
+            // Assert
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.NoSlidingExpiration);
+        }
     }
     
     public class RefreshAsync(Fixture fixture) : IClassFixture<Fixture>
@@ -1134,6 +1206,26 @@ public class RedisExplorerTests
         
             // Assert
             result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
+        }
+        
+        [Fact]
+        public async Task ShouldReturnResultWithNoSlidingExpirationFlag()
+        {
+            // Arrange
+            var databaseMock = fixture.GetDatabaseMock();
+        
+            databaseMock.Setup(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
+                It.IsAny<RedisKey[]?>(),
+                It.IsAny<RedisValue[]?>(),
+                CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(LuaScripts.RefreshNoSlidingExpirationReturn)));
+            
+            var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
+        
+            // Act
+            var result = await redisExplorer.RefreshAsync(fixture.TestKey);
+        
+            // Assert
+            result.Flags.Should().HaveFlag(ExplorerResultFlags.NoSlidingExpiration);
         }
     }
 

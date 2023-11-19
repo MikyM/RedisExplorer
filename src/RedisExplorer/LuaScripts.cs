@@ -20,13 +20,19 @@ public static class LuaScripts
     // ARGV[2] = sliding-expiration - in seconds as long (-1 for none)
     // ARGV[3] = relative-expiration (long, in seconds, -1 for none) - Min(absolute-expiration - Now, sliding-expiration)
     // ARGV[4] = data - byte[]
-    // RETURNS 1
+    // ARGV[5] = 1 to check if key exists and abort if it does, 0 to not check
+    // RETURNS 1 if set, 2 if set and overwritten, 3 if not set due to key collision
     // this order should not change LUA script depends on it
     /// <summary>
     /// The set script.
     /// </summary>
     public const string SetScript = """
-                                    
+                                                    if ARGV[5] == '1' then
+                                                      if redis.call('EXISTS', KEYS[1]) == 1 then
+                                                        return '3'
+                                                      end
+                                                    end
+                                                    
                                                     local result = redis.call('HSET', KEYS[1], 'absexp', ARGV[1], 'sldexp', ARGV[2], 'data', ARGV[4])
                                                     if ARGV[3] ~= '-1' then
                                                       redis.call('EXPIRE', KEYS[1], ARGV[3])
@@ -121,13 +127,13 @@ public static class LuaScripts
                                                         end
                                         
                                                         if sldexpResult == false then
-                                                          return nil
+                                                          return '4'
                                                         end
                                         
                                                         local sldexp = tonumber(sldexpResult)
                                         
                                                         if sldexp == -1 then
-                                                          return '1'
+                                                          return '2'
                                                         end
                                         
                                                         local absexp = tonumber(redis.call('HGET', KEYS[1], 'absexp'))
@@ -192,13 +198,25 @@ public static class LuaScripts
     /// </summary>
     public const string DontReturnDataArg = "0";
     /// <summary>
+    /// Abort if exists.
+    /// </summary>
+    public const string AbortSetIfExistsArg = "1";
+    /// <summary>
     /// Successful result no data value.
     /// </summary>
-    public const string NoDataReturnedSuccessValue = "1";
+    public const string SuccessReturn = "1";
     /// <summary>
     /// Successful result no data value when a set method overwritten existing data.
     /// </summary>
-    public const string NoDataReturnedSuccessSetOverwrittenValue = "2";
+    public const string SetOverwrittenReturn = "2";
+    /// <summary>
+    /// Successful result no data value when a set method collided with existing key.
+    /// </summary>
+    public const string SetCollisionReturn = "3";
+    /// <summary>
+    /// No sliding exp on refresh.
+    /// </summary>
+    public const string RefreshNoSlidingExpirationReturn = "4";
     /// <summary>
     /// Not present value.
     /// </summary>

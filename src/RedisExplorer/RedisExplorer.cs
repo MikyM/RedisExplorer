@@ -587,7 +587,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         return HandleGetAndRefreshResultAsExplorerResult(key, result, true);
     }
-    
+
     /// <inheritdoc />
     void IDistributedCache.Refresh(string key)
     {
@@ -688,11 +688,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             return null;
         }
             
-        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
+        if (resultString != LuaScripts.SuccessReturn)
         {
             Logger.LogWarning(
                 "Unexpected value returned from Redis script refresh execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
-                LuaScripts.NoDataReturnedSuccessValue, resultString);
+                LuaScripts.SuccessReturn, resultString);
         }
 
         return null;
@@ -724,16 +724,21 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
             
-        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
+        if (resultString == LuaScripts.SuccessReturn)
         {
-            Logger.LogWarning(
-                "Unexpected value returned from Redis refresh script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
-                LuaScripts.NoDataReturnedSuccessValue, resultString);
-            
-            return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
+            return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.Success);
+        }
+        
+        if (resultString == LuaScripts.RefreshNoSlidingExpirationReturn)
+        {
+            return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.NoSlidingExpiration);
         }
 
-        return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.Success);
+        Logger.LogWarning(
+            "Unexpected value returned from Redis refresh script execution. Expected: {ExpectedValue}. Actual: {ActualValue}",
+            LuaScripts.SuccessReturn, resultString);
+        
+        return new ExplorerResult<byte[]>(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
     }
     
     private async Task<RedisResult> GetAndRefreshAsync(string key, bool getData, CancellationToken token = default)
@@ -770,11 +775,33 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        var result = SetPrivate(key, value, options);
+        var result = SetPrivate(key, value, options, false);
 
         HandleSetResult(key, result);
     }
-    
+
+    /// <inheritdoc />
+    public IExplorerResult Set(string key, byte[] value, DistributedCacheEntryOptions options, bool abortIfExists)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var result = SetPrivate(key, value, options, abortIfExists);
+
+        return HandleSetResultAsExplorerResult(key, result);
+    }
+
+    /// <inheritdoc />
+    public IExplorerResult Set(string key, string value, DistributedCacheEntryOptions options)
+        => Set(key, Encoding.UTF8.GetBytes(value), options);
+
+    /// <inheritdoc />
+    public IExplorerResult Set(string key, string value, DistributedCacheEntryOptions options, bool abortIfExists)
+        => Set(key, Encoding.UTF8.GetBytes(value), options, abortIfExists);
+
     /// <inheritdoc />
     async Task IDistributedCache.SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
     {
@@ -784,10 +811,36 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        var result = await SetPrivateAsync(key, value, options, token);
+        var result = await SetPrivateAsync(key, value, options, false, token);
 
         HandleSetResult(key, result);
     }
+
+    /// <inheritdoc />
+    public Task<IExplorerResult> SetAsync(string key, string value, DistributedCacheEntryOptions options,
+        bool abortIfExists,
+        CancellationToken token = default)
+        => SetAsync(key, Encoding.UTF8.GetBytes(value), options, abortIfExists, token);
+    
+    /// <inheritdoc />
+    public async Task<IExplorerResult> SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, bool abortIfExists,
+        CancellationToken token = default)
+    {
+        CheckDisposed();
+        
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var result = await SetPrivateAsync(key, value, options, abortIfExists, token);
+
+        return HandleSetResultAsExplorerResult(key, result);
+    }
+
+    /// <inheritdoc />
+    public Task<IExplorerResult> SetAsync(string key, string value, DistributedCacheEntryOptions options,
+        CancellationToken token = default)
+        => SetAsync(key, Encoding.UTF8.GetBytes(value), options, token);
 
     private ExplorerResult HandleSetResultAsExplorerResult(string key, RedisResult result)
     {
@@ -805,20 +858,25 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
         
-        if (resultString != LuaScripts.NoDataReturnedSuccessValue && resultString != LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)
+        if (resultString == LuaScripts.SuccessReturn)
         {
-            Logger.LogWarning("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
-                $"{LuaScripts.NoDataReturnedSuccessValue} or {LuaScripts.NoDataReturnedSuccessSetOverwrittenValue}", resultString);
-            
-            return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
+            return new ExplorerResult(key, result, ExplorerResultFlags.Success);
         }
-
-        if (resultString == LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)
+        
+        if (resultString == LuaScripts.SetOverwrittenReturn)
         {
             return new ExplorerResult(key, result, ExplorerResultFlags.Success | ExplorerResultFlags.KeyOverwritten);
         }
         
-        return new ExplorerResult(key, result, ExplorerResultFlags.Success);
+        if (resultString == LuaScripts.SetCollisionReturn)
+        {
+            return new ExplorerResult(key, result, ExplorerResultFlags.KeyCollision);
+        }
+
+        Logger.LogWarning("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
+            $"{LuaScripts.SuccessReturn} or {LuaScripts.RefreshNoSlidingExpirationReturn}", resultString);
+            
+        return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
     }
     
     private void HandleSetResult(string key, RedisResult result)
@@ -834,10 +892,10 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                 result.Resp3Type.ToString());
         }
         
-        if (resultString != LuaScripts.NoDataReturnedSuccessValue && resultString != LuaScripts.NoDataReturnedSuccessSetOverwrittenValue)
+        if (resultString != LuaScripts.SuccessReturn && resultString != LuaScripts.SetOverwrittenReturn && resultString != LuaScripts.SetCollisionReturn)
         {
             Logger.LogWarning("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
-                $"{LuaScripts.NoDataReturnedSuccessValue} or {LuaScripts.NoDataReturnedSuccessSetOverwrittenValue}", resultString);
+                $"{LuaScripts.SuccessReturn} or {LuaScripts.RefreshNoSlidingExpirationReturn}", resultString);
         }
     }
     
@@ -850,7 +908,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        var result = SetPrivate(key, value, options);
+        var result = SetPrivate(key, value, options, false);
 
         return HandleSetResultAsExplorerResult(key, result);
     }
@@ -865,12 +923,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        var result = await SetPrivateAsync(key, value, options, token);
+        var result = await SetPrivateAsync(key, value, options, false, token);
 
         return HandleSetResultAsExplorerResult(key, result);
     }
 
-    private async Task<RedisResult> SetPrivateAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default)
+    private async Task<RedisResult> SetPrivateAsync(string key, byte[] value, DistributedCacheEntryOptions options, bool abortIfExists, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
 
@@ -891,7 +949,8 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                 absoluteExpirationAsUnix ?? LuaScripts.NotPresent,
                 slidingExpirationInSeconds ?? LuaScripts.NotPresent,
                 relativeExpirationInSeconds ?? LuaScripts.NotPresent,
-                value
+                value,
+                abortIfExists ? LuaScripts.AbortSetIfExistsArg : LuaScripts.NotPresent
             });
         
         // this probably means the script was not loaded yet, lets retry with full script
@@ -903,14 +962,15 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                     absoluteExpirationAsUnix ?? LuaScripts.NotPresent,
                     slidingExpirationInSeconds ?? LuaScripts.NotPresent,
                     relativeExpirationInSeconds ?? LuaScripts.NotPresent,
-                    value
+                    value,
+                    abortIfExists ? LuaScripts.AbortSetIfExistsArg : LuaScripts.NotPresent
                 });
         }
 
         return result;
     }
 
-    private RedisResult SetPrivate(string key, byte[] value, DistributedCacheEntryOptions options)
+    private RedisResult SetPrivate(string key, byte[] value, DistributedCacheEntryOptions options, bool abortIfExists)
     {
         var (_, _, redisDatabase) = Connect();
 
@@ -929,7 +989,8 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                 absoluteExpirationAsUnix ?? LuaScripts.NotPresent,
                 slidingExpirationInSeconds ?? LuaScripts.NotPresent,
                 relativeExpirationInSeconds ?? LuaScripts.NotPresent,
-                value
+                value,
+                abortIfExists ? LuaScripts.AbortSetIfExistsArg : LuaScripts.NotPresent
             });
         
         // this probably means the script was not loaded yet, lets retry with full script
@@ -941,7 +1002,8 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                     absoluteExpirationAsUnix ?? LuaScripts.NotPresent,
                     slidingExpirationInSeconds ?? LuaScripts.NotPresent,
                     relativeExpirationInSeconds ?? LuaScripts.NotPresent,
-                    value
+                    value,
+                    abortIfExists ? LuaScripts.AbortSetIfExistsArg : LuaScripts.NotPresent
                 });
         }
 
@@ -1059,11 +1121,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                 result.Resp3Type.ToString());
         }
         
-        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
+        if (resultString != LuaScripts.SuccessReturn)
         {
             Logger.LogWarning(
                 "Unexpected value returned from Redis remove script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
-                LuaScripts.NoDataReturnedSuccessValue, resultString);
+                LuaScripts.SuccessReturn, resultString);
         }
     }
     
@@ -1088,11 +1150,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
         
-        if (resultString != LuaScripts.NoDataReturnedSuccessValue)
+        if (resultString != LuaScripts.SuccessReturn)
         {
             Logger.LogWarning(
                 "Unexpected value returned from Redis remove script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
-                LuaScripts.NoDataReturnedSuccessValue, resultString);
+                LuaScripts.SuccessReturn, resultString);
             
             return new ExplorerResult(key, result, ExplorerResultFlags.UnexpectedResultAcquired);
         }
