@@ -116,24 +116,32 @@ public static class LuaScripts
     /// Script that refreshes the expiration and returns '1', if the key is not found NIL is returned.
     /// </summary>
     public const string RefreshScript = """
+                                                        local sub = function (key)
+                                                          local bulk = redis.call('HGET', KEYS[1], 'sldexp', 'absexp')
+                                        	                 local result = {}
+                                        	                 local nextkey
+                                        	                 for i, v in ipairs(bulk) do
+                                        		                 if i % 2 == 1 then
+                                        			                 nextkey = v
+                                        		                 else
+                                        			                 result[nextkey] = v
+                                        		                 end
+                                        	                 end
+                                        	                 return result
+                                                        end
                                         
-                                                        local sldexpResult = redis.call('HGET', KEYS[1], 'sldexp')
+                                                        local result = sub(KEYS[1])
                                         
-                                                        if sldexpResult == nil then
+                                                        if next(result) == nil then
                                                           return nil
                                                         end
-                                        
-                                                        if sldexpResult == false then
-                                                          return '4'
-                                                        end
-                                        
-                                                        local sldexp = tonumber(sldexpResult)
+                                                        
+                                                        local sldexp = tonumber(result['sldexp'])
+                                                        local absexp = tonumber(result['absexp'])
                                         
                                                         if sldexp == -1 then
-                                                          return '2'
+                                                          return '4'
                                                         end
-                                        
-                                                        local absexp = tonumber(redis.call('HGET', KEYS[1], 'absexp'))
                                         
                                                         local time = tonumber(redis.call('TIME')[1])
                                                         local relexp = 1
