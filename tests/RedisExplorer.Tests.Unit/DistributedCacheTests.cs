@@ -135,7 +135,7 @@ public class DistributedCacheTests
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluate(It.IsAny<string>(), 
                 It.IsAny<RedisKey[]?>(),
-                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.AlsoRefreshArg), 
+                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.GetWithRefreshArg), 
                 CommandFlags.None), Times.Once);
         }
         
@@ -147,7 +147,7 @@ public class DistributedCacheTests
         
             databaseMock.Setup(x => x.ScriptEvaluate(It.Is<string>(s => s == LuaScripts.GetAndRefreshScript),
                 It.Is<RedisKey[]?>(k => k!.Length == 1 && k[0] == fixture.TestKey),
-                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.AlsoRefreshArg),
+                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.GetWithRefreshArg),
                 CommandFlags.None)).Returns(RedisResult.Create(RedisValue.Null));
         
             var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
@@ -169,7 +169,7 @@ public class DistributedCacheTests
         
             databaseMock.Setup(x => x.ScriptEvaluate(It.Is<string>(s => s == LuaScripts.GetAndRefreshScript),
                 It.Is<RedisKey[]?>(k => k!.Length == 1 && k[0] == fixture.TestKey),
-                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.AlsoRefreshArg),
+                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.GetWithRefreshArg),
                 CommandFlags.None)).Returns(RedisResult.Create(new RedisValue(fixture.TestString)));
         
             var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
@@ -253,7 +253,7 @@ public class DistributedCacheTests
             // Assert
             databaseMock.Verify(x => x.ScriptEvaluateAsync(It.IsAny<string>(),
                 It.IsAny<RedisKey[]?>(),
-                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.AlsoRefreshArg),
+                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.GetWithRefreshArg),
                 CommandFlags.None), Times.Once);
         }
         
@@ -265,7 +265,7 @@ public class DistributedCacheTests
         
             databaseMock.Setup(x => x.ScriptEvaluateAsync(It.Is<string>(s => s == LuaScripts.GetAndRefreshScript),
                 It.Is<RedisKey[]?>(k => k!.Length == 1 && k[0] == fixture.TestKey),
-                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.AlsoRefreshArg),
+                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.GetWithRefreshArg),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(RedisValue.Null));
         
             var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());
@@ -287,7 +287,7 @@ public class DistributedCacheTests
         
             databaseMock.Setup(x => x.ScriptEvaluateAsync(It.Is<string>(s => s == LuaScripts.GetAndRefreshScript),
                 It.Is<RedisKey[]?>(k => k!.Length == 1 && k[0] == fixture.TestKey),
-                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.AlsoRefreshArg),
+                It.Is<RedisValue[]?>(v => v!.Length == 1 && v[0] == LuaScripts.GetWithRefreshArg),
                 CommandFlags.None)).ReturnsAsync(RedisResult.Create(new RedisValue(fixture.TestString)));
         
             var distributedCache = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 6, fixture.GetTimeProviderMock());

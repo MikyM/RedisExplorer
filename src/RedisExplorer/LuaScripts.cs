@@ -46,11 +46,11 @@ public static class LuaScripts
                                     """;
     
     // KEYS[1] = = key
-    // ARGV[1] = whether to also refresh the expiration (1 or -1)
+    // ARGV[1] = whether to also refresh the expiration (1 or 0)
     // RETURNS null if not found, 1 if successful and no data returned, or data if successful and data returned
     // this order should not change LUA script depends on it
     /// <summary>
-    /// Script that HGET's the key's value, refreshes the expiration and returns the value or '1' (if return data arg was 0), if the key is not found NIL is returned.
+    /// Script that HGET's the key's value, refreshes the expiration and returns the value, if the key is not found NIL is returned.
     /// </summary>
     public const string GetAndRefreshScript = """
                                                               local sub = function (key)
@@ -76,12 +76,12 @@ public static class LuaScripts
                                                               local sldexp = tonumber(result['sldexp'])
                                                               local absexp = tonumber(result['absexp'])
                                                               
-                                                              if ARGV[1] == -1 then
-                                                                  return '2'
+                                                              if ARGV[1] == 0 then
+                                                                  return result['data']
                                                               end
                                               
                                                               if sldexp == -1 then
-                                                                  return '2'
+                                                                  return result['data']
                                                               end
                                               
                                                               local time = tonumber(redis.call('TIME')[1])
@@ -89,7 +89,7 @@ public static class LuaScripts
                                                               if absexp ~= -1 then
                                                                 relexp = absexp - time
                                                                 if relexp <= 0 then
-                                                                  return '2'
+                                                                  return result['data']
                                                                 end
                                                               end
                                               
@@ -106,10 +106,7 @@ public static class LuaScripts
                                                               
                                                               redis.call('EXPIRE', KEYS[1], exp, 'XX')
                                                                               
-                                                              if ARGV[1] == '1' then
-                                                                return result['data']
-                                                              end
-                                                              return '1'
+                                                              return result['data']
                                               """;
     
     // KEYS[1] = = key
@@ -190,13 +187,13 @@ public static class LuaScripts
     /// </summary>
     public const string DataKey = "data";
     /// <summary>
-    /// Return data arg value.
+    /// Refresh key expiration on GET arg.
     /// </summary>
-    public const string AlsoRefreshArg = "1";
+    public const string GetWithRefreshArg = "1";
     /// <summary>
-    /// Don't return data arg value.
+    /// Dont refresh key expiration on GET arg.
     /// </summary>
-    public const string DontReturnDataArg = "0";
+    public const string GetWithoutRefreshArg = "0";
     /// <summary>
     /// Abort if exists.
     /// </summary>
