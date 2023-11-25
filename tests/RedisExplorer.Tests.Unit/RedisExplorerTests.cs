@@ -226,7 +226,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public void ShouldReturnExplorerResultWithNotFoundFlagWhenRedisReturnsNil()
+        public void ShouldReturnResultWithKeyNotFoundSetToTrueRedisReturnsNil()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -242,12 +242,12 @@ public class RedisExplorerTests
             var result = redisExplorer.Get(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound).And
-                .NotHaveFlag(ExplorerResultFlags.Success);
+            result.KeyNotFound.Should().BeTrue();
+            result.IsSuccess.Should().BeFalse();
         }
         
         [Fact]
-        public void ShouldReturnDefinedExplorerResultWhenRedisReturnsData()
+        public void ShouldReturnDefinedResultWhenRedisReturnsData()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -345,7 +345,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public async Task ShouldReturnExplorerResultWithNotFoundFlagWhenRedisReturnsNil()
+        public async Task ShouldReturnResultWithKeyNotFoundSetToTrueRedisReturnsNil()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -361,12 +361,12 @@ public class RedisExplorerTests
             var result = await redisExplorer.GetAsync(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound).And
-                .NotHaveFlag(ExplorerResultFlags.Success);
+            result.KeyNotFound.Should().BeTrue();
+            result.IsSuccess.Should().BeFalse();
         }
         
         [Fact]
-        public async Task ShouldReturnDefinedExplorerResultWhenRedisReturnsData()
+        public async Task ShouldReturnDefinedResultWhenRedisReturnsData()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -536,7 +536,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public void ShouldReturnResultWithKeyOverwrittenFlag()
+        public void ShouldReturnResultWithKeyOverwrittenSetToTrue()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -553,7 +553,7 @@ public class RedisExplorerTests
             var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyOverwritten);
+            result.KeyOverwritten.Should().BeTrue();
         }
         
         [Fact]
@@ -574,13 +574,13 @@ public class RedisExplorerTests
             var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.Success);
-            result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyOverwritten);
-            result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyCollision);
+            result.IsSuccess.Should().BeTrue();
+            result.KeyOverwritten.Should().BeFalse();
+            result.KeyCollisionOccurred.Should().BeNull();
         }
         
         [Fact]
-        public void ShouldReturnResultWithKeyCollisionFlag()
+        public void ShouldReturnResultWithKeyCollisionSetToTrue()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -597,7 +597,7 @@ public class RedisExplorerTests
             var result = redisExplorer.Set(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyCollision);
+            result.KeyCollisionOccurred.Should().BeTrue();
         }
     }
     
@@ -686,7 +686,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public async Task ShouldReturnResultWithKeyOverwrittenFlag()
+        public async Task ShouldReturnResultWithKeyOverwrittenSetToTrue()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -703,7 +703,7 @@ public class RedisExplorerTests
             var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyOverwritten);
+            result.KeyOverwritten.Should().BeTrue();
         }
         
         [Fact]
@@ -724,9 +724,9 @@ public class RedisExplorerTests
             var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.Success);
-            result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyOverwritten);
-            result.Flags.Should().NotHaveFlag(ExplorerResultFlags.KeyCollision);
+            result.IsSuccess.Should().BeTrue();
+            result.KeyOverwritten.Should().BeFalse();
+            result.KeyCollisionOccurred.Should().BeNull();
         }
         
         [Fact]
@@ -747,7 +747,7 @@ public class RedisExplorerTests
             var result = await redisExplorer.SetAsync(fixture.TestKey, Encoding.UTF8.GetBytes(fixture.TestKey));
 
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyCollision);
+            result.KeyCollisionOccurred.Should().BeTrue();
         }
     }
 
@@ -883,7 +883,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public void ShouldReturnResultWithKeyNotFoundFlag()
+        public void ShouldReturnResultWithKeyNotFoundSetToTrue()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -899,7 +899,8 @@ public class RedisExplorerTests
             var result = redisExplorer.Remove(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
+            result.KeyNotFound.Should().BeTrue();
+            result.IsSuccess.Should().BeFalse();
         }
     }
     
@@ -975,7 +976,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public async Task ShouldReturnResultWithKeyNotFoundFlag()
+        public async Task ShouldReturnResultWithKeyNotFoundSetToTrue()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -991,7 +992,8 @@ public class RedisExplorerTests
             var result = await redisExplorer.RemoveAsync(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
+            result.KeyNotFound.Should().BeTrue();
+            result.IsSuccess.Should().BeFalse();
         }
     }
     
@@ -1067,7 +1069,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public void ShouldReturnResultWithKeyNotFoundFlag()
+        public void ShouldReturnResultWithKeyNotFoundSetToTrue()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -1083,7 +1085,8 @@ public class RedisExplorerTests
             var result = redisExplorer.Refresh(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
+            result.KeyNotFound.Should().BeTrue();
+            result.IsSuccess.Should().BeFalse();
         }
         
         [Fact]
@@ -1103,7 +1106,8 @@ public class RedisExplorerTests
             var result = redisExplorer.Refresh(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.NoSlidingExpiration);
+            result.IsSuccess.Should().BeFalse();
+            result.KeyHasNoSlidingExpiration.Should().BeTrue();
         }
     }
     
@@ -1179,7 +1183,7 @@ public class RedisExplorerTests
         }
         
         [Fact]
-        public async Task ShouldReturnResultWithKeyNotFoundFlag()
+        public async Task ShouldReturnResultWithKeyNotFoundSetToTrue()
         {
             // Arrange
             var databaseMock = fixture.GetDatabaseMock();
@@ -1195,7 +1199,8 @@ public class RedisExplorerTests
             var result = await redisExplorer.RefreshAsync(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.KeyNotFound);
+            result.IsSuccess.Should().BeFalse();
+            result.KeyNotFound.Should().BeTrue();
         }
         
         [Fact]
@@ -1215,7 +1220,8 @@ public class RedisExplorerTests
             var result = await redisExplorer.RefreshAsync(fixture.TestKey);
         
             // Assert
-            result.Flags.Should().HaveFlag(ExplorerResultFlags.NoSlidingExpiration);
+            result.IsSuccess.Should().BeFalse();
+            result.KeyHasNoSlidingExpiration.Should().BeTrue();
         }
     }
 
