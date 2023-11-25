@@ -21,9 +21,9 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 {
     // combined keys - same hash keys fetched constantly; avoid allocating an array each time
     private static readonly RedisValue[] GetHashMembersWithRefresh = { LuaScripts.GetWithRefreshArg };
-    private static readonly RedisValue[] GetHashMembersWithoutRefresh = { LuaScripts.GetWithoutRefreshArg };
+    private static readonly RedisValue[] HashMembersSingleNotPresent = { LuaScripts.NotPresent };
     private static readonly RedisValue[] HashMembersEmpty = Array.Empty<RedisValue>();
-    private static RedisValue[] GetHashMembers(bool shouldRefresh) => shouldRefresh ? GetHashMembersWithRefresh : GetHashMembersWithoutRefresh;
+    private static RedisValue[] GetHashMembers(bool shouldRefresh) => shouldRefresh ? GetHashMembersWithRefresh : HashMembersSingleNotPresent;
     
     private Dictionary<string,string> _knownInternalScripts = [];
     

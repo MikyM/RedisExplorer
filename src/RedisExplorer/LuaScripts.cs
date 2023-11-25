@@ -76,7 +76,7 @@ public static class LuaScripts
                                                               local sldexp = tonumber(result['sldexp'])
                                                               local absexp = tonumber(result['absexp'])
                                                               
-                                                              if ARGV[1] == 0 then
+                                                              if ARGV[1] == -1 then
                                                                   return result['data']
                                                               end
                                               
@@ -190,10 +190,6 @@ public static class LuaScripts
     /// Refresh key expiration on GET arg.
     /// </summary>
     public const string GetWithRefreshArg = "1";
-    /// <summary>
-    /// Dont refresh key expiration on GET arg.
-    /// </summary>
-    public const string GetWithoutRefreshArg = "0";
     /// <summary>
     /// Abort if exists.
     /// </summary>
