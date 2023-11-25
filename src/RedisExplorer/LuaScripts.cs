@@ -104,8 +104,14 @@ public static class LuaScripts
                                                                 exp = sldexp
                                                               end
                                                               
-                                                              redis.call('EXPIRE', KEYS[1], exp, 'XX')
-                                                                              
+                                                              local expire = redis.call('EXPIRE', KEYS[1], exp, 'XX')
+                                                              if expire == 1 then
+                                                                return result['data']
+                                                              end
+                                                              
+                                                              redis.call('HSET', KEYS[1], 'absexp', absexp, 'sldexp', sldexp, 'data', result['data'])
+                                                              redis.call('EXPIRE', KEYS[1], exp)
+                                                              
                                                               return result['data']
                                               """;
     
@@ -163,9 +169,12 @@ public static class LuaScripts
                                                           exp = sldexp
                                                         end
                                                         
-                                                        redis.call('EXPIRE', KEYS[1], exp, 'XX')
-                                                                        
-                                                        return '1'
+                                                        local expire = redis.call('EXPIRE', KEYS[1], exp, 'XX')
+                                                        if expire == 1 then
+                                                          return '1'
+                                                        end
+                                                        
+                                                        return nil
                                         """;
     
     /// <summary>
