@@ -2,70 +2,82 @@
 
 namespace RedisExplorer;
 
-/// <inheritdoc/>
+/// <inheritdoc cref="IExplorerResult"/>
 [PublicAPI]
-public record ExplorerResult : IExplorerResult
+public abstract class ExplorerResult : IExplorerResult, IEquatable<ExplorerResult>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ExplorerResult"/> class.
     /// </summary>
     /// <param name="key">The key.</param>
     /// <param name="redisResult">The Redis result.</param>
-    /// <param name="flags">The flags.</param>
-    public ExplorerResult(string key, RedisResult redisResult, ExplorerResultFlags flags)
+    protected ExplorerResult(string key, RedisResult redisResult)
     {
         Key = key;
         RedisResult = redisResult;
-        Flags = flags;
+        Id = Guid.NewGuid().ToString();
     }
 
     /// <inheritdoc/>
-    public bool IsSuccess => (Flags & ExplorerResultFlags.Success) != 0;
+    public bool IsSuccess => RedisErrorOccurred == false && ProcessRequirementErrorOccurred == false;
 
     /// <inheritdoc/>
-    public bool RedisErrorOccurred => (Flags & ExplorerResultFlags.RedisError) != 0;
+    public bool RedisErrorOccurred { get; init; }
     
     /// <inheritdoc/>
-    public bool ProcessRequirementErrorOccurred => (Flags & ExplorerResultFlags.ProcessRequirementError) != 0;
+    public bool ProcessRequirementErrorOccurred { get; init; }
+
+    /// <inheritdoc/>
+    public string Id { get; }
 
     /// <inheritdoc/>
     public string Key { get; init; }
-    
-    /// <inheritdoc/>
-    public RedisResult RedisResult { get; init; }
-    
-    /// <inheritdoc/>
-    public ExplorerResultFlags Flags { get; protected init; }
 
     /// <inheritdoc/>
-    public override string ToString() => $"{nameof(ExplorerResult)}: {Key} - {IsSuccess} - {Flags}";
+    public DateTimeOffset ObtainedAt { get; }
+
+    /// <inheritdoc/>
+    public RedisResult RedisResult { get; init; }
+
+    /// <inheritdoc/>
+    public bool Equals(IExplorerResult? other)
+        => other is not null && Id == other.Id;
+
+    /// <inheritdoc/>
+    public bool Equals(ExplorerResult? other)
+        => other is not null && Id == other.Id;
+    
+    /// <inheritdoc/>
+    public override bool Equals(object? obj)
+        => obj is IExplorerResult other && Id == other.Id;
+    
+    /// <inheritdoc/>
+    public override int GetHashCode()
+        => Id.GetHashCode();
+
+    /// <inheritdoc/>
+    public override string ToString() => $"{nameof(ExplorerResult)}: {Key} - {IsSuccess}";
 }
 
 /// <inheritdoc cref="IExplorerResult{T}"/>
 /// <inheritdoc cref="IExplorerResult"/>
 [PublicAPI]
-public record ExplorerResult<TValue> : ExplorerResult, IExplorerResult<TValue> where TValue : class
+public abstract class ExplorerResult<TValue> : ExplorerResult, IExplorerResult<TValue>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ExplorerResult{T}"/> class.
     /// </summary>
     /// <param name="key">The key.</param>
     /// <param name="redisResult">The Redis result.</param>
-    /// <param name="flags">The flags.</param>
     /// <param name="value">The value.</param>
-    public ExplorerResult(string key, RedisResult redisResult, ExplorerResultFlags flags, TValue? value = null) : base(key, redisResult, flags)
+    protected ExplorerResult(string key, RedisResult redisResult, TValue? value = default) : base(key, redisResult)
     {
-        if (value is not null)
-        {
-            Flags |= ExplorerResultFlags.NonNullValue;
-        }
-        
         Value = value;
     }
 
     /// <inheritdoc/>
     [MemberNotNullWhen(true, nameof(Value))]
-    public bool IsDefined([NotNullWhen(true)] out TValue? value)
+    public virtual bool IsDefined([NotNullWhen(true)] out TValue? value)
     {
         value = Value;
         return IsSuccess && value is not null;
@@ -75,5 +87,5 @@ public record ExplorerResult<TValue> : ExplorerResult, IExplorerResult<TValue> w
     public TValue? Value { get; init; }
     
     /// <inheritdoc/>
-    public override string ToString() => $"{nameof(ExplorerResult)}<{typeof(TValue).Name}>: {Key} - {IsSuccess} - {Flags} - {(Value is null ? "null" : "non-null")}";
+    public override string ToString() => $"{nameof(ExplorerResult)}<{typeof(TValue).Name}>: {Key} - {IsSuccess} - {(Value is null ? "null" : "non-null")}";
 }

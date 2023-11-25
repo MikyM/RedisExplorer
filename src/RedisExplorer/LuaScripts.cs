@@ -77,11 +77,11 @@ public static class LuaScripts
                                                               local absexp = tonumber(result['absexp'])
                                                               
                                                               if ARGV[1] == -1 then
-                                                                  return '1'
+                                                                  return '2'
                                                               end
                                               
                                                               if sldexp == -1 then
-                                                                  return '1'
+                                                                  return '2'
                                                               end
                                               
                                                               local time = tonumber(redis.call('TIME')[1])
@@ -89,7 +89,7 @@ public static class LuaScripts
                                                               if absexp ~= -1 then
                                                                 relexp = absexp - time
                                                                 if relexp <= 0 then
-                                                                  return '1'
+                                                                  return '2'
                                                                 end
                                                               end
                                               

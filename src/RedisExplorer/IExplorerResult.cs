@@ -3,15 +3,25 @@
 namespace RedisExplorer;
 
 /// <summary>
-/// Represents a result of an operation against Redis performed with RedisExplorer scripts.
+/// Represents a result of an operation against Redis performed with RedisExplorer.
 /// </summary>
 [PublicAPI]
-public interface IExplorerResult
+public interface IExplorerResult : IEquatable<IExplorerResult>
 {
+    /// <summary>
+    /// The unique identifier of the operation.
+    /// </summary>
+    string Id { get; }
+    
     /// <summary>
     /// The key associated with the operation.
     /// </summary>
     string Key { get; }
+    
+    /// <summary>
+    /// The time the result was obtained.
+    /// </summary>
+    DateTimeOffset ObtainedAt { get; }
     
     /// <summary>
     /// The inner result of the operation.
@@ -19,37 +29,29 @@ public interface IExplorerResult
     RedisResult RedisResult { get; }
     
     /// <summary>
-    /// Flags associated with the result.
-    /// </summary>
-    ExplorerResultFlags Flags { get; }
-    
-    /// <summary>
     /// Whether the operation is considered a success - whether the operation has completed with no Redis or process requirement related errors.
     /// </summary>
-    /// <remarks>This is a shortcut for checking whether the <see cref="ExplorerResultFlags.Success"/> flag is present in <see cref="Flags"/>.</remarks>
     bool IsSuccess { get; }
     
     /// <summary>
     /// Whether a Redis error occurred.
     /// </summary>
-    /// <remarks>This is a shortcut for checking whether the <see cref="ExplorerResultFlags.RedisError"/> flag is present in <see cref="Flags"/>.</remarks>
     bool RedisErrorOccurred { get; }
     
     /// <summary>
     /// Whether a process requirement error occurred (ie. refreshing a key with no sliding expiration set).
     /// </summary>
-    /// <remarks>This is a shortcut for checking whether the <see cref="ExplorerResultFlags.ProcessRequirementError"/> flag is present in <see cref="Flags"/>.</remarks>
     bool ProcessRequirementErrorOccurred { get; }
 }
 
 /// <summary>
-/// Represents a result of an operation against Redis performed with RedisExplorer scripts which may result with a value.
+/// Represents a result of an operation against Redis performed with RedisExplorer which may contain a value.
 /// </summary>
 [PublicAPI]
-public interface IExplorerResult<TValue> : IExplorerResult where TValue : class
+public interface IExplorerResult<TValue> : IExplorerResult
 {
     /// <summary>
-    /// Deserialized result value, if any.
+    /// The value, if any.
     /// </summary>
     TValue? Value { get; }
     

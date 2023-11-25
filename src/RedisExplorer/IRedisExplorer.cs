@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using RedisExplorer.OperationResults;
 using RedLockNet;
 
 namespace RedisExplorer;
@@ -145,7 +146,7 @@ public interface IRedisExplorer
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>The located value or null.</returns>
-    IExplorerResult<TValue> Get<TValue>(string key, Action<GetOperationOptions> options) where TValue : class;
+    IGetOperationResult<TValue> Get<TValue>(string key, Action<GetOperationOptions> options) where TValue : class;
     
     /// <summary>
     /// Gets a value with the given key and deserializes it.
@@ -153,14 +154,14 @@ public interface IRedisExplorer
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>The located value or null.</returns>
-    IExplorerResult<TValue> Get<TValue>(string key, GetOperationOptions options) where TValue : class;
+    IGetOperationResult<TValue> Get<TValue>(string key, GetOperationOptions options) where TValue : class;
     
     /// <summary>
     /// Gets a value with the given key and deserializes it.
     /// </summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <returns>The located value or null.</returns>
-    IExplorerResult<TValue> Get<TValue>(string key) where TValue : class;
+    IGetOperationResult<TValue> Get<TValue>(string key) where TValue : class;
 
     /// <summary>
     /// Gets a value with the given key and deserializes it.
@@ -169,7 +170,7 @@ public interface IRedisExplorer
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the located value or null.</returns>
-    Task<IExplorerResult<TValue>> GetAsync<TValue>(string key, Action<GetOperationOptions> options, CancellationToken token = default) where TValue : class;
+    Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, Action<GetOperationOptions> options, CancellationToken token = default) where TValue : class;
     
     /// <summary>
     /// Gets a value with the given key and deserializes it.
@@ -178,7 +179,7 @@ public interface IRedisExplorer
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the located value or null.</returns>
-    Task<IExplorerResult<TValue>> GetAsync<TValue>(string key, GetOperationOptions options, CancellationToken token = default) where TValue : class;
+    Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, GetOperationOptions options, CancellationToken token = default) where TValue : class;
     
     /// <summary>
     /// Gets a value with the given key and deserializes it.
@@ -186,121 +187,121 @@ public interface IRedisExplorer
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the located value or null.</returns>
-    Task<IExplorerResult<TValue>> GetAsync<TValue>(string key, CancellationToken token = default) where TValue : class;
+    Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, CancellationToken token = default) where TValue : class;
 
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult<byte[]> Get(string key);
+    IGetOperationResult<byte[]> Get(string key);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult<byte[]> Get(string key, Action<GetOperationOptions> options);
+    IGetOperationResult<byte[]> Get(string key, Action<GetOperationOptions> options);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult<byte[]> Get(string key, GetOperationOptions options);
+    IGetOperationResult<byte[]> Get(string key, GetOperationOptions options);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult<byte[]>> GetAsync(string key, CancellationToken token = default);
-    
-    /// <summary>Gets a value with the given key.</summary>
-    /// <param name="key">A string identifying the requested value.</param>
-    /// <param name="options">The operation options.</param>
-    /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
-    /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult<byte[]>> GetAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default);
+    Task<IGetOperationResult<byte[]>> GetAsync(string key, CancellationToken token = default);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult<byte[]>> GetAsync(string key, GetOperationOptions options, CancellationToken token = default);
+    Task<IGetOperationResult<byte[]>> GetAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default);
+    
+    /// <summary>Gets a value with the given key.</summary>
+    /// <param name="key">A string identifying the requested value.</param>
+    /// <param name="options">The operation options.</param>
+    /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+    /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
+    Task<IGetOperationResult<byte[]>> GetAsync(string key, GetOperationOptions options, CancellationToken token = default);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult<string> GetString(string key, Action<GetOperationOptions> options);
+    IGetOperationResult<string> GetString(string key, Action<GetOperationOptions> options);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult<string> GetString(string key, GetOperationOptions options);
+    IGetOperationResult<string> GetString(string key, GetOperationOptions options);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult<string> GetString(string key);
+    IGetOperationResult<string> GetString(string key);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult<string>> GetStringAsync(string key, CancellationToken token = default);
+    Task<IGetOperationResult<string>> GetStringAsync(string key, CancellationToken token = default);
 
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult<string>> GetStringAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default);
+    Task<IGetOperationResult<string>> GetStringAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default);
     
     /// <summary>Gets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult<string>> GetStringAsync(string key, GetOperationOptions options, CancellationToken token = default);
+    Task<IGetOperationResult<string>> GetStringAsync(string key, GetOperationOptions options, CancellationToken token = default);
     
     /// <summary>Sets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult Set(string key, byte[] value, Action<SetOperationOptions> options);
+    ISetOperationResult Set(string key, byte[] value, Action<SetOperationOptions> options);
     
     /// <summary>Sets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult Set(string key, byte[] value, SetOperationOptions options);
+    ISetOperationResult Set(string key, byte[] value, SetOperationOptions options);
     
     /// <summary>Sets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult Set(string key, byte[] value);
-    
-    /// <summary>Sets a value with the given key.</summary>
-    /// <param name="key">A string identifying the requested value.</param>
-    /// <param name="value">The value to set in the cache.</param>
-    /// <param name="options">The operation options.</param>
-    /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult SetString(string key, string value, Action<SetOperationOptions> options);
+    ISetOperationResult Set(string key, byte[] value);
     
     /// <summary>Sets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="options">The operation options.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult SetString(string key, string value, SetOperationOptions options);
+    ISetOperationResult SetString(string key, string value, Action<SetOperationOptions> options);
+    
+    /// <summary>Sets a value with the given key.</summary>
+    /// <param name="key">A string identifying the requested value.</param>
+    /// <param name="value">The value to set in the cache.</param>
+    /// <param name="options">The operation options.</param>
+    /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
+    ISetOperationResult SetString(string key, string value, SetOperationOptions options);
     
     /// <summary>Sets a value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult SetString(string key, string value);
+    ISetOperationResult SetString(string key, string value);
 
     /// <summary>Sets the value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
@@ -308,7 +309,7 @@ public interface IRedisExplorer
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult> SetAsync(
+    Task<ISetOperationResult> SetAsync(
         string key,
         byte[] value,
         Action<SetOperationOptions> options,
@@ -320,7 +321,7 @@ public interface IRedisExplorer
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult> SetAsync(
+    Task<ISetOperationResult> SetAsync(
         string key,
         byte[] value,
         SetOperationOptions options,
@@ -331,7 +332,7 @@ public interface IRedisExplorer
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult> SetAsync(
+    Task<ISetOperationResult> SetAsync(
         string key,
         byte[] value,
         CancellationToken token = default);
@@ -342,7 +343,7 @@ public interface IRedisExplorer
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult> SetStringAsync(
+    Task<ISetOperationResult> SetStringAsync(
         string key,
         string value,
         Action<SetOperationOptions> options,
@@ -354,7 +355,7 @@ public interface IRedisExplorer
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult> SetStringAsync(
+    Task<ISetOperationResult> SetStringAsync(
         string key,
         string value,
         SetOperationOptions options,
@@ -365,7 +366,7 @@ public interface IRedisExplorer
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult> SetStringAsync(
+    Task<ISetOperationResult> SetStringAsync(
         string key,
         string value,
         CancellationToken token = default);
@@ -378,7 +379,7 @@ public interface IRedisExplorer
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    Task<IExplorerResult> SetAsync<TValue>(string key, TValue value, Action<SetOperationOptions> options,
+    Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, Action<SetOperationOptions> options,
         CancellationToken token = default) where TValue : class;
     
     /// <summary>
@@ -389,7 +390,7 @@ public interface IRedisExplorer
     /// <param name="options">The operation options.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    Task<IExplorerResult> SetAsync<TValue>(string key, TValue value, SetOperationOptions options,
+    Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, SetOperationOptions options,
         CancellationToken token = default) where TValue : class;
 
     /// <summary>
@@ -399,7 +400,7 @@ public interface IRedisExplorer
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="token">Optional. The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    Task<IExplorerResult> SetAsync<TValue>(string key, TValue value, CancellationToken token = default) where TValue : class;
+    Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, CancellationToken token = default) where TValue : class;
 
     /// <summary>
     /// Sets a value with the given key serializing it beforehand.
@@ -407,7 +408,7 @@ public interface IRedisExplorer
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="options">The operation options.</param>
-    IExplorerResult Set<TValue>(string key, TValue value, Action<SetOperationOptions> options) where TValue : class;
+    ISetOperationResult Set<TValue>(string key, TValue value, Action<SetOperationOptions> options) where TValue : class;
     
     /// <summary>
     /// Sets a value with the given key serializing it beforehand.
@@ -415,21 +416,21 @@ public interface IRedisExplorer
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
     /// <param name="options">The operation options.</param>
-    IExplorerResult Set<TValue>(string key, TValue value, SetOperationOptions options) where TValue : class;
+    ISetOperationResult Set<TValue>(string key, TValue value, SetOperationOptions options) where TValue : class;
     
     /// <summary>
     /// Sets a value with the given key serializing it beforehand.
     /// </summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="value">The value to set in the cache.</param>
-    IExplorerResult Set<TValue>(string key, TValue value) where TValue : class;
+    ISetOperationResult Set<TValue>(string key, TValue value) where TValue : class;
     
     /// <summary>
     /// Refreshes a value in the cache based on its key, resetting its sliding expiration timeout (if any).
     /// </summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult Refresh(string key);
+    IRefreshOperationResult Refresh(string key);
 
     /// <summary>
     /// Refreshes a value in the cache based on its key, resetting its sliding expiration timeout (if any).
@@ -437,18 +438,18 @@ public interface IRedisExplorer
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult> RefreshAsync(string key, CancellationToken token = default);
+    Task<IRefreshOperationResult> RefreshAsync(string key, CancellationToken token = default);
 
     /// <summary>Removes the value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <returns>A result of the operation as <see cref="IExplorerResult"/>.</returns>
-    IExplorerResult Remove(string key);
+    IRemoveOperationResult Remove(string key);
 
     /// <summary>Removes the value with the given key.</summary>
     /// <param name="key">A string identifying the requested value.</param>
     /// <param name="token">Optional. The <see cref="T:System.Threading.CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing a result of the operation as <see cref="IExplorerResult"/>.</returns>
-    Task<IExplorerResult> RemoveAsync(string key, CancellationToken token = default);
+    Task<IRemoveOperationResult> RemoveAsync(string key, CancellationToken token = default);
 
     /// <summary>
     /// Serializes the value using the underlying <see cref="RedisExplorer.JsonSerializerOptions"/>.

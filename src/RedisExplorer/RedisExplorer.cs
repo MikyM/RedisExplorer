@@ -7,6 +7,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using RedisExplorer.OperationResults;
 using RedLockNet;
 
 namespace RedisExplorer;
@@ -660,11 +661,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region GetString
 
     /// <inheritdoc />
-    public IExplorerResult<string> GetString(string key, Action<GetOperationOptions> options)
+    public IGetOperationResult<string> GetString(string key, Action<GetOperationOptions> options)
         => GetString(key, GetOptionsFromAction(options));
 
     /// <inheritdoc />
-    public IExplorerResult<string> GetString(string key, GetOperationOptions options)
+    public IGetOperationResult<string> GetString(string key, GetOperationOptions options)
     {
         CheckDisposed();
         
@@ -677,7 +678,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public IExplorerResult<string> GetString(string key)
+    public IGetOperationResult<string> GetString(string key)
     {
         CheckDisposed();
         
@@ -689,11 +690,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IExplorerResult<string>> GetStringAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default)
-        => await GetStringAsync(key, GetOptionsFromAction(options), token);
+    public Task<IGetOperationResult<string>> GetStringAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default)
+        => GetStringAsync(key, GetOptionsFromAction(options), token);
 
     /// <inheritdoc />
-    public async Task<IExplorerResult<string>> GetStringAsync(string key, GetOperationOptions options, CancellationToken token = default)
+    public async Task<IGetOperationResult<string>> GetStringAsync(string key, GetOperationOptions options, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -706,7 +707,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IExplorerResult<string>> GetStringAsync(string key, CancellationToken token = default)
+    public async Task<IGetOperationResult<string>> GetStringAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -722,7 +723,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region GetBytes
 
     /// <inheritdoc />
-    public IExplorerResult<byte[]> Get(string key, GetOperationOptions options)
+    public IGetOperationResult<byte[]> Get(string key, GetOperationOptions options)
     {
         CheckDisposed();
         
@@ -735,7 +736,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public IExplorerResult<byte[]> Get(string key)
+    public IGetOperationResult<byte[]> Get(string key)
     {
         CheckDisposed();
         
@@ -747,11 +748,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public IExplorerResult<byte[]> Get(string key, Action<GetOperationOptions> options)
+    public IGetOperationResult<byte[]> Get(string key, Action<GetOperationOptions> options)
         => Get(key, GetOptionsFromAction(options));
 
     /// <inheritdoc />
-    public async Task<IExplorerResult<byte[]>> GetAsync(string key, CancellationToken token = default)
+    public async Task<IGetOperationResult<byte[]>> GetAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -763,7 +764,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
     
     /// <inheritdoc />
-    public async Task<IExplorerResult<byte[]>> GetAsync(string key, GetOperationOptions options, CancellationToken token = default)
+    public async Task<IGetOperationResult<byte[]>> GetAsync(string key, GetOperationOptions options, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -777,7 +778,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
     
     /// <inheritdoc />
-    public Task<IExplorerResult<byte[]>> GetAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default)
+    public Task<IGetOperationResult<byte[]>> GetAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default)
         => GetAsync(key, GetOptionsFromAction(options), token);
 
     #endregion
@@ -785,7 +786,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region GetDeserialized
 
     /// <inheritdoc />
-    public IExplorerResult<TValue> Get<TValue>(string key) where TValue : class
+    public IGetOperationResult<TValue> Get<TValue>(string key) where TValue : class
     {
         CheckDisposed();
         
@@ -797,7 +798,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
     
     /// <inheritdoc />
-    public IExplorerResult<TValue> Get<TValue>(string key, GetOperationOptions options) where TValue : class
+    public IGetOperationResult<TValue> Get<TValue>(string key, GetOperationOptions options) where TValue : class
     {
         CheckDisposed();
         
@@ -810,12 +811,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public IExplorerResult<TValue> Get<TValue>(string key, Action<GetOperationOptions> options)
+    public IGetOperationResult<TValue> Get<TValue>(string key, Action<GetOperationOptions> options)
         where TValue : class
         => Get<TValue>(key, GetOptionsFromAction(options));
 
     /// <inheritdoc />
-    public async Task<IExplorerResult<TValue>> GetAsync<TValue>(string key, Action<GetOperationOptions> options, CancellationToken token = default) where TValue : class
+    public async Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, Action<GetOperationOptions> options, CancellationToken token = default) where TValue : class
     {
         CheckDisposed();
         
@@ -828,7 +829,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IExplorerResult<TValue>> GetAsync<TValue>(string key, GetOperationOptions options, CancellationToken token = default) where TValue : class
+    public async Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, GetOperationOptions options, CancellationToken token = default) where TValue : class
     {
         CheckDisposed();
         
@@ -841,7 +842,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IExplorerResult<TValue>> GetAsync<TValue>(string key, CancellationToken token = default) where TValue : class
+    public async Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, CancellationToken token = default) where TValue : class
     {
         CheckDisposed();
         
@@ -902,36 +903,59 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         return factory(result);
     }
     
-    private ExplorerResult<TValue> HandleGetResultAsExplorerResult<TValue>(string key,  RedisResult result, Func<RedisResult,TValue?> dataFactory) where TValue : class
+    private GetOperationResult<TValue> HandleGetResultAsExplorerResult<TValue>(string key,  RedisResult result, Func<RedisResult,TValue?> dataFactory) where TValue : class
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             Logger.LogError("Redis returned an error result - {Error}", (string?)result);
-            return new ExplorerResult<TValue>(key, result, ExplorerResultFlags.UnknownErrorOccurred | ExplorerResultFlags.RedisError);
+            return new GetOperationResult<TValue>(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
 
         if (result.IsNull)
         {
-            return new ExplorerResult<TValue>(key, result, ExplorerResultFlags.KeyNotFound);
+            return new GetOperationResult<TValue>(key, result)
+            {
+                KeyNotFound = true,
+                ProcessRequirementErrorOccurred = true
+            };
         }
 
-        return new ExplorerResult<TValue>(key, result, ExplorerResultFlags.Success, dataFactory.Invoke(result));
+        return new GetOperationResult<TValue>(key, result, dataFactory.Invoke(result));
     }
     
-    private ExplorerResult<TValue> HandleGetResultAsExplorerDeserializedResult<TValue>(string key, RedisResult result) where TValue : class
+    private GetOperationResult<TValue> HandleGetResultAsExplorerDeserializedResult<TValue>(string key, RedisResult result) where TValue : class
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             Logger.LogError("Redis returned an error result - {Error}", (string?)result);
-            return new ExplorerResult<TValue>(key, result, ExplorerResultFlags.UnknownErrorOccurred | ExplorerResultFlags.RedisError);
+            return new GetOperationResult<TValue>(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
 
         if (result.IsNull)
         {
-            return new ExplorerResult<TValue>(key, result, ExplorerResultFlags.KeyNotFound);
+            return new GetOperationResult<TValue>(key, result)
+            {
+                KeyNotFound = true,
+                ProcessRequirementErrorOccurred = true
+            };
         }
 
-        return new ExplorerResult<TValue>(key, result, ExplorerResultFlags.Success, RedisResultToDeserialized<TValue>(result));
+        var deserialized = RedisResultToDeserialized<TValue>(result);
+        if (deserialized is null)
+        {
+            return new GetOperationResult<TValue>(key, result)
+            {
+                RedisErrorOccurred = true
+            };
+        }
+
+        return new GetOperationResult<TValue>(key, result, deserialized);
     }
 
     private Task<RedisResult> GetAsyncPrivate(string key, Action<GetOperationOptions> options,
@@ -975,7 +999,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region Refresh
 
     /// <inheritdoc />
-    public IExplorerResult Refresh(string key)
+    public IRefreshOperationResult Refresh(string key)
     {
         CheckDisposed();
         
@@ -987,7 +1011,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IExplorerResult> RefreshAsync(string key, CancellationToken token = default)
+    public async Task<IRefreshOperationResult> RefreshAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -1063,7 +1087,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value type returned from Redis refresh script execution. Expected a string type. Actual: {ActualType}",
+            Logger.LogCritical("Unexpected value type returned from Redis refresh script execution. Expected a string type. Actual: {ActualType}",
                 result.Resp3Type.ToString());
 
             return;
@@ -1071,48 +1095,65 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             
         if (resultString != LuaScripts.SuccessReturn)
         {
-            Logger.LogWarning(
+            Logger.LogCritical(
                 "Unexpected value returned from Redis script refresh execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
                 LuaScripts.SuccessReturn, resultString);
         }
     }
     
-    private ExplorerResult HandleRefreshResultAsExplorerResult(string key,  RedisResult result)
+    private RefreshOperationResult HandleRefreshResultAsExplorerResult(string key,  RedisResult result)
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             Logger.LogError("Redis returned an error result - {Error}", (string?)result);
-            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownErrorOccurred | ExplorerResultFlags.RedisError);
+            return new RefreshOperationResult(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
 
         if (result.IsNull)
         {
-            return new ExplorerResult(key, result, ExplorerResultFlags.KeyNotFound);
+            return new RefreshOperationResult(key, result)
+            {
+                KeyNotFound = true,
+                ProcessRequirementErrorOccurred = true
+            };
         }
 
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value type returned from Redis refresh script execution. Expected a string type. Actual: {ActualType}",
+            Logger.LogCritical("Unexpected value type returned from Redis refresh script execution. Expected a string type. Actual: {ActualType}",
                 result.Resp3Type.ToString());
 
-            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownOutcome);
+            return new RefreshOperationResult(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
             
         if (resultString == LuaScripts.SuccessReturn)
         {
-            return new ExplorerResult(key, result, ExplorerResultFlags.Success);
+            return new RefreshOperationResult(key, result);
         }
         
         if (resultString == LuaScripts.RefreshNoSlidingExpirationReturn)
         {
-            return new ExplorerResult(key, result, ExplorerResultFlags.NoSlidingExpiration | ExplorerResultFlags.ProcessRequirementError);
+            return new RefreshOperationResult(key, result)
+            {
+                KeyHasNoSlidingExpiration = true,
+                ProcessRequirementErrorOccurred = true
+            };
         }
 
-        Logger.LogWarning(
+        Logger.LogCritical(
             "Unexpected value returned from Redis refresh script execution. Expected: {ExpectedValue}. Actual: {ActualValue}",
             LuaScripts.SuccessReturn, resultString);
-        
-        return new ExplorerResult(key, result, ExplorerResultFlags.UnknownOutcome);
+
+        return new RefreshOperationResult(key, result)
+        {
+            RedisErrorOccurred = true
+        };
     }
 
     #endregion
@@ -1122,28 +1163,28 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region SetString
 
     /// <inheritdoc />
-    public Task<IExplorerResult> SetStringAsync(string key, string value, Action<SetOperationOptions> options,
+    public Task<ISetOperationResult> SetStringAsync(string key, string value, Action<SetOperationOptions> options,
         CancellationToken token = default)
         => SetAsync(key, Encoding.UTF8.GetBytes(value), GetOptionsFromAction(options), token);
 
     /// <inheritdoc />
-    public Task<IExplorerResult> SetStringAsync(string key, string value, SetOperationOptions options, CancellationToken token = default)
+    public Task<ISetOperationResult> SetStringAsync(string key, string value, SetOperationOptions options, CancellationToken token = default)
         => SetAsync(key, Encoding.UTF8.GetBytes(value), options, token);
 
     /// <inheritdoc />
-    public Task<IExplorerResult> SetStringAsync(string key, string value, CancellationToken token = default)
+    public Task<ISetOperationResult> SetStringAsync(string key, string value, CancellationToken token = default)
         => SetAsync(key, Encoding.UTF8.GetBytes(value), token);
 
     /// <inheritdoc />
-    public IExplorerResult SetString(string key, string value, Action<SetOperationOptions> options)
+    public ISetOperationResult SetString(string key, string value, Action<SetOperationOptions> options)
         => Set(key, value, GetOptionsFromAction(options));
 
     /// <inheritdoc />
-    public IExplorerResult SetString(string key, string value, SetOperationOptions options)
+    public ISetOperationResult SetString(string key, string value, SetOperationOptions options)
         => Set(key, Encoding.UTF8.GetBytes(value), options);
 
     /// <inheritdoc />
-    public IExplorerResult SetString(string key, string value)
+    public ISetOperationResult SetString(string key, string value)
         => Set(key, Encoding.UTF8.GetBytes(value));
 
     #endregion
@@ -1151,11 +1192,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region SetBytes
 
     /// <inheritdoc />
-    public Task<IExplorerResult> SetAsync(string key, byte[] value, Action<SetOperationOptions> options, CancellationToken token = default)
+    public Task<ISetOperationResult> SetAsync(string key, byte[] value, Action<SetOperationOptions> options, CancellationToken token = default)
         => SetAsync(key, value, GetOptionsFromAction(options), token);
 
     /// <inheritdoc />
-    public async Task<IExplorerResult> SetAsync(string key, byte[] value, SetOperationOptions options, CancellationToken token = default)
+    public async Task<ISetOperationResult> SetAsync(string key, byte[] value, SetOperationOptions options, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -1165,24 +1206,24 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         var result = await SetPrivateAsync(key, value, options, null, token);
 
-        return HandleSetResultAsExplorerResult(key, result);
+        return HandleSetResultAsExplorerResult(key, result, !options.OverwriteIfKeyExists);
     }
 
     /// <inheritdoc />
-    public async Task<IExplorerResult> SetAsync(string key, byte[] value, CancellationToken token = default)
+    public async Task<ISetOperationResult> SetAsync(string key, byte[] value, CancellationToken token = default)
     {
         CheckDisposed();
         
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(value);
 
-        var result = await SetPrivateAsync(key, value, (SetOperationOptions?)null, null, token);
+        var result = await SetPrivateAsync(key, value, null, null, token);
 
-        return HandleSetResultAsExplorerResult(key, result);
+        return HandleSetResultAsExplorerResult(key, result, false);
     }
     
     /// <inheritdoc />
-    public IExplorerResult Set(string key, byte[] value, SetOperationOptions options)
+    public ISetOperationResult Set(string key, byte[] value, SetOperationOptions options)
     {
         CheckDisposed();
         
@@ -1191,10 +1232,10 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         var result = SetPrivate(key, value, options, null);
 
-        return HandleSetResultAsExplorerResult(key, result);
+        return HandleSetResultAsExplorerResult(key, result, !options.OverwriteIfKeyExists);
     }
     /// <inheritdoc />
-    public IExplorerResult Set(string key, byte[] value)
+    public ISetOperationResult Set(string key, byte[] value)
     {
         CheckDisposed();
         
@@ -1203,11 +1244,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         var result = SetPrivate(key, value, null, null);
 
-        return HandleSetResultAsExplorerResult(key, result);
+        return HandleSetResultAsExplorerResult(key, result, false);
     }
 
     /// <inheritdoc />
-    public IExplorerResult Set(string key, byte[] value, Action<SetOperationOptions> options)
+    public ISetOperationResult Set(string key, byte[] value, Action<SetOperationOptions> options)
         => Set(key, value, GetOptionsFromAction(options));
     
     #endregion
@@ -1215,27 +1256,27 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region SetSerialized
 
     /// <inheritdoc />
-    public Task<IExplorerResult> SetAsync<TValue>(string key, TValue value, Action<SetOperationOptions> options, CancellationToken token = default) where TValue : class
+    public Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, Action<SetOperationOptions> options, CancellationToken token = default) where TValue : class
         => SetAsync(key, SerializeToUtf8Bytes(value), options, token);
 
     /// <inheritdoc />
-    public Task<IExplorerResult> SetAsync<TValue>(string key, TValue value, SetOperationOptions options, CancellationToken token = default) where TValue : class
+    public Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, SetOperationOptions options, CancellationToken token = default) where TValue : class
         => SetAsync(key, SerializeToUtf8Bytes(value), options, token);
 
     /// <inheritdoc />
-    public Task<IExplorerResult> SetAsync<TValue>(string key, TValue value, CancellationToken token = default) where TValue : class
+    public Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, CancellationToken token = default) where TValue : class
         => SetAsync(key, SerializeToUtf8Bytes(value), x => x.WithExpirationOptions(Options.ExpirationOptions.GetEntryOptions<TValue>()), token);
     
     /// <inheritdoc />
-    public IExplorerResult Set<TValue>(string key, TValue value, Action<SetOperationOptions> options) where TValue : class
+    public ISetOperationResult Set<TValue>(string key, TValue value, Action<SetOperationOptions> options) where TValue : class
         => Set(key, SerializeToUtf8Bytes(value), options);
     
     /// <inheritdoc />
-    public IExplorerResult Set<TValue>(string key, TValue value, SetOperationOptions options) where TValue : class
+    public ISetOperationResult Set<TValue>(string key, TValue value, SetOperationOptions options) where TValue : class
         => Set(key, SerializeToUtf8Bytes(value), options);
     
     /// <inheritdoc />
-    public IExplorerResult Set<TValue>(string key, TValue value) where TValue : class
+    public ISetOperationResult Set<TValue>(string key, TValue value) where TValue : class
         => Set(key, SerializeToUtf8Bytes(value));
 
     #endregion
@@ -1247,41 +1288,60 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         return opt;
     }
     
-    private ExplorerResult HandleSetResultAsExplorerResult(string key, RedisResult result)
+    private SetOperationResult HandleSetResultAsExplorerResult(string key, RedisResult result, bool withCollisionDetection)
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             Logger.LogError("Redis returned an error result - {Error}", result);
-            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownErrorOccurred | ExplorerResultFlags.RedisError);
+            return new SetOperationResult(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
 
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value type returned from Redis set script execution. Expected a string type. Actual: {Actual}",
+            Logger.LogCritical("Unexpected value type returned from Redis set script execution. Expected a string type. Actual: {Actual}",
                 result.Resp3Type.ToString());
-            
-            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownOutcome);
+
+            return new SetOperationResult(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
         
         if (resultString == LuaScripts.SuccessReturn)
         {
-            return new ExplorerResult(key, result, ExplorerResultFlags.Success);
+            return new SetOperationResult(key, result)
+            {
+                KeyCollisionOccurred = withCollisionDetection ? false : null
+            };
         }
         
         if (resultString == LuaScripts.SetOverwrittenReturn)
         {
-            return new ExplorerResult(key, result, ExplorerResultFlags.Success | ExplorerResultFlags.KeyOverwritten);
+            return new SetOperationResult(key, result)
+            {
+                KeyOverwritten = true
+            };
         }
         
         if (resultString == LuaScripts.SetCollisionReturn)
         {
-            return new ExplorerResult(key, result, ExplorerResultFlags.KeyCollision | ExplorerResultFlags.ProcessRequirementError);
+            return new SetOperationResult(key, result)
+            {
+                ProcessRequirementErrorOccurred = true,
+                KeyCollisionOccurred = true
+            };
         }
 
-        Logger.LogWarning("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
+        Logger.LogCritical("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
             $"{LuaScripts.SuccessReturn}, {LuaScripts.SetCollisionReturn} or {LuaScripts.SetOverwrittenReturn}", resultString);
-            
-        return new ExplorerResult(key, result, ExplorerResultFlags.UnknownOutcome);
+
+        return new SetOperationResult(key, result)
+        {
+            RedisErrorOccurred = true
+        };
     }
     
     private void HandleSetResult(string key, RedisResult result)
@@ -1293,13 +1353,13 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value type returned from Redis set script execution. Expected a string type. Actual: {Actual}",
+            Logger.LogCritical("Unexpected value type returned from Redis set script execution. Expected a string type. Actual: {Actual}",
                 result.Resp3Type.ToString());
         }
         
         if (resultString != LuaScripts.SuccessReturn && resultString != LuaScripts.SetOverwrittenReturn && resultString != LuaScripts.SetCollisionReturn)
         {
-            Logger.LogWarning("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
+            Logger.LogCritical("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
                 $"{LuaScripts.SuccessReturn}, {LuaScripts.SetCollisionReturn} or {LuaScripts.SetOverwrittenReturn}", resultString);
         }
     }
@@ -1374,7 +1434,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region Remove
 
     /// <inheritdoc />
-    public IExplorerResult Remove(string key)
+    public IRemoveOperationResult Remove(string key)
     {
         CheckDisposed();
         
@@ -1386,7 +1446,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IExplorerResult> RemoveAsync(string key, CancellationToken token = default)
+    public async Task<IRemoveOperationResult> RemoveAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -1411,49 +1471,62 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value type returned from Redis remove script execution. Expected a string type. Actual: {Actual}",
+            Logger.LogCritical("Unexpected value type returned from Redis remove script execution. Expected a string type. Actual: {Actual}",
                 result.Resp3Type.ToString());
         }
         
         if (resultString != LuaScripts.SuccessReturn)
         {
-            Logger.LogWarning(
+            Logger.LogCritical(
                 "Unexpected value returned from Redis remove script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
                 LuaScripts.SuccessReturn, resultString);
         }
     }
     
-    private ExplorerResult HandleRemoveResultAsExplorerResult(string key, RedisResult result)
+    private RemoveOperationResult HandleRemoveResultAsExplorerResult(string key, RedisResult result)
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             Logger.LogError("Redis returned an error result - {Error}", result);
-            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownErrorOccurred | ExplorerResultFlags.RedisError);
+            return new RemoveOperationResult(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
 
         if (result.IsNull)
         {
-            return new ExplorerResult(key, result, ExplorerResultFlags.KeyNotFound);
+            return new RemoveOperationResult(key, result)
+            {
+                KeyNotFound = true,
+                ProcessRequirementErrorOccurred = true
+            };
         }
 
         if (!result.TryExtractString(out var resultString, out _, out _))
         {
-            Logger.LogWarning("Unexpected value type returned from Redis remove script execution. Expected a string type. Actual: {Actual}",
+            Logger.LogCritical("Unexpected value type returned from Redis remove script execution. Expected a string type. Actual: {Actual}",
                 result.Resp3Type.ToString());
             
-            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownOutcome);
+            return new RemoveOperationResult(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
         
         if (resultString != LuaScripts.SuccessReturn)
         {
-            Logger.LogWarning(
+            Logger.LogCritical(
                 "Unexpected value returned from Redis remove script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
                 LuaScripts.SuccessReturn, resultString);
-            
-            return new ExplorerResult(key, result, ExplorerResultFlags.UnknownOutcome);
+
+            return new RemoveOperationResult(key, result)
+            {
+                RedisErrorOccurred = true
+            };
         }
         
-        return new ExplorerResult(key, result, ExplorerResultFlags.Success);
+        return new RemoveOperationResult(key, result);
     }
 
     private RedisResult RemovePrivate(string key)
