@@ -64,7 +64,7 @@ public class DistributedCacheTests
             var jsonOptMock = new Mock<IOptionsMonitor<JsonSerializerOptions>>();
             jsonOptMock.Setup(x => x.Get(RedisExplorer.JsonOptionsName)).Returns(jsonOpt);
 
-            return new RedisExplorer(timeProviderMock.Object, cacheOptMock.Object, jsonOptMock.Object, NullLoggerFactory.Instance.CreateLogger<RedisExplorer>(), NullLoggerFactory.Instance, new ConfigurationOptions());
+            return new RedisExplorer(timeProviderMock.Object, cacheOptMock.Object, jsonOptMock.Object, NullLoggerFactory.Instance, new ConfigurationOptions());
         }
     }
 

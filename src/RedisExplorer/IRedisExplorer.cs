@@ -18,11 +18,6 @@ public interface IRedisExplorer
     RedisKey Prefix { get; }
     
     /// <summary>
-    /// The time provider.
-    /// </summary>
-    TimeProvider TimeProvider { get; }
-    
-    /// <summary>
     /// Gets the options.
     /// </summary>
     RedisCacheOptions Options { get; }
@@ -31,12 +26,7 @@ public interface IRedisExplorer
     /// Gets the json options.
     /// </summary>
     JsonSerializerOptions JsonSerializerOptions { get; }
-        
-    /// <summary>
-    /// Gets the inner logger.
-    /// </summary>
-    ILogger Logger { get; }
-
+    
     /// <summary>
     /// Whether the <see cref="ConnectionMultiplexer"/> is set to be proxy compliant.
     /// </summary>

@@ -1,6 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
+using DotNet.Testcontainers.Configurations;
+using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Caching.Distributed;
@@ -40,8 +43,12 @@ public class SingleInstanceFixture : Fixture
     private bool _initialized;
     private ConnectionMultiplexer? _multiplexer;
     private ConnectionMultiplexer? _envoyCompatibilityMultiplexer;
-    private RedisContainer? _container;
-    private const string RedisContainerName = "redis-explorer-test-redis-single";
+    private RedisContainer? _redisContainer;
+    /*private DockerContainer? _envoyContainer;*/
+    
+    private const string RedisContainerName = "redis-explorer-redis";
+    /*private const string EnovyImage = "envoyproxy/envoy:v1.28-latest";
+    private const string EnovyContainerName = "redis-explorer-envoy";*/
     
     public override async Task InitializeAsync()
     {
@@ -51,19 +58,35 @@ public class SingleInstanceFixture : Fixture
         Console.WriteLine(
             $"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Creating Redis container...");
 
-        _container = new RedisBuilder()
+        _redisContainer = new RedisBuilder()
             .WithImage(RedisImage)
             .WithName(RedisContainerName)
             .WithPortBinding(RedisBuilder.RedisPort, RedisBuilder.RedisPort)
             .Build();
+        
+        await _redisContainer.StartAsync();
+        
+        /*var envoyYamlSource = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "envoy", "envoy.yaml");
+        _envoyContainer = new RedisBuilder()
+            .WithImage(EnovyImage)
+            .WithName(EnovyContainerName)
+            .WithPortBinding(6378, 6378)
+            .DependsOn(_redisContainer)
+            .WithBindMount(envoyYamlSource, "/etc/envoy/envoy.yaml", AccessMode.ReadOnly)
+            .Build();
 
-        await _container.StartAsync();
+        await _envoyContainer.StartAsync();*/
 
-        _multiplexer = await ConnectionMultiplexer.ConnectAsync(_container.GetConnectionString());
-        _envoyCompatibilityMultiplexer = await ConnectionMultiplexer.ConnectAsync(_container.GetConnectionString(), x =>
-        {
-            x.Proxy = Proxy.Envoyproxy;
-        });
+        _multiplexer = await ConnectionMultiplexer.ConnectAsync(_redisContainer.GetConnectionString());
+        _envoyCompatibilityMultiplexer = await ConnectionMultiplexer.ConnectAsync(_redisContainer.GetConnectionString(),
+                x => x.Proxy = Proxy.Envoyproxy);/*new ConfigurationOptions()
+                {
+                    /*EndPoints = { new DnsEndPoint(_envoyContainer.Hostname, _envoyContainer.GetMappedPublicPort(6378)) },#1#
+                    Proxy = Proxy.Envoyproxy,
+                    /*AbortOnConnectFail = false,
+                    ConnectRetry = 5,
+                    ConnectTimeout = 10000#1#
+                });*/
 
         Console.WriteLine(
             $"[redis-explorer-tests {TimeProvider.System.GetUtcNow().DateTime.ToString(CultureInfo.InvariantCulture)}] Redis container created");
@@ -81,10 +104,15 @@ public class SingleInstanceFixture : Fixture
         {
             await _envoyCompatibilityMultiplexer.DisposeAsync();
         }
-        if (_container is not null)
+        /*if (_envoyContainer is not null)
         {
-            await _container.StopAsync();
-            await _container.DisposeAsync();
+            await _envoyContainer.StopAsync();
+            await _envoyContainer.DisposeAsync();
+        }*/
+        if (_redisContainer is not null)
+        {
+            await _redisContainer.StopAsync();
+            await _redisContainer.DisposeAsync();
         }
 
         Console.WriteLine(
@@ -116,23 +144,21 @@ public class SingleInstanceFixture : Fixture
     
     public override IRedisExplorer GetTestInstance(Proxy proxy, TimeProvider? timeProvider = null)
     {
+        if (proxy is Proxy.None)
+            return GetTestInstance(timeProvider);
+
+        if (proxy is Proxy.Twemproxy)
+            throw new NotSupportedException();
+        
         if (_initialized == false)
         {
             throw new InvalidOperationException("Fixture not initialized");
         }
-
-        var multi = proxy switch
-        {
-            Proxy.Envoyproxy => _envoyCompatibilityMultiplexer,
-            Proxy.None => _multiplexer,
-            Proxy.Twemproxy => throw new NotSupportedException(),
-            _ => throw new NotSupportedException()
-        };
         
         var cacheOpt = new RedisCacheOptions
         {
             ConnectionOptions =
-                new RedisCacheConnectionOptions(() => Task.FromResult((IConnectionMultiplexer)multi!))
+                new RedisCacheConnectionOptions(() => Task.FromResult((IConnectionMultiplexer)_envoyCompatibilityMultiplexer!))
         };
         
         cacheOpt.PostConfigure();
