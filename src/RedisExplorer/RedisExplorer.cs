@@ -145,7 +145,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         PreHashScripts();
     }
 
-    private bool ShouldUseSHAOptimization(bool forceNonSHA = false)
+    private bool ShouldUseSHAOptimization()
         => UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies;
     
     private const string NoScript = "NOSCRIPT";

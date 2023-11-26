@@ -215,12 +215,12 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
 
         [Theory]
         [MemberData(nameof(ExpirationTestCases))]
-        public void ShouldSetCorrectExpirationWhenOptionsNotEmpty(DistributedCacheEntryOptions options, Proxy proxy)
+        public void ShouldSetCorrectExpirationWhenOptionsNotEmpty(DistributedCacheEntryOptions options)
         {
             // Arrange
             _singleInstanceFixture.Initialize();
 
-            var testObj = _singleInstanceFixture.GetTestInstance(proxy);
+            var testObj = _singleInstanceFixture.GetTestInstance();
             var now = TimeProvider.System.GetUtcNow();
 
             var key = _singleInstanceFixture.GetKey();
