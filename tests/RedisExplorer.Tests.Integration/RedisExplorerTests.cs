@@ -355,17 +355,70 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             // Arrange
             _singleInstanceFixture.Initialize();
             var testObj = _singleInstanceFixture.GetTestInstance();
-            var now = TimeProvider.System.GetUtcNow();
+            TimeProvider.System.GetUtcNow();
 
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            testObj.Set(key, _singleInstanceFixture.TestString);
+            var result = testObj.Set(key, _singleInstanceFixture.TestString);
             
             // Assert
             var expiration = testObj.GetDatabase().KeyExpireTime(key);
 
             expiration.Should().BeNull();
+            result.IsSuccess.Should().BeTrue();
+        }
+        
+[Fact]
+        public void ShouldNotOverwriteTheKeyIfOptionsSetToNoOverwriting()
+        {
+            // Arrange
+            _singleInstanceFixture.Initialize();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+
+            var key = _singleInstanceFixture.GetKey();
+            var overwritten = _singleInstanceFixture.TestString + _singleInstanceFixture.TestString;
+            
+            // Act
+            var result1 = testObj.SetString(key, _singleInstanceFixture.TestString);
+            var result2 = testObj.SetString(key, overwritten, opt => opt.WithoutKeyOverwriting());
+            var getResult = testObj.GetString(key);
+            
+            // Assert
+            result1.IsSuccess.Should().BeTrue();
+            result1.KeyOverwritten.Should().BeFalse();
+            result1.KeyCollisionOccurred.Should().BeNull();
+            result2.IsSuccess.Should().BeFalse();
+            result2.KeyOverwritten.Should().BeFalse();
+            result2.KeyCollisionOccurred.Should().BeTrue();
+            getResult.IsDefined(out var sub).Should().BeTrue();
+            sub.Should().Be(_singleInstanceFixture.TestString);
+        }
+        
+        [Fact]
+        public void ShouldOverwriteTheKeyIfOptionsSetToOverwriting()
+        {
+            // Arrange
+            _singleInstanceFixture.Initialize();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+
+            var key = _singleInstanceFixture.GetKey();
+
+            var overwritten = _singleInstanceFixture.TestString + _singleInstanceFixture.TestString;
+            
+            // Act
+            var result1 = testObj.SetString(key, _singleInstanceFixture.TestString);
+            var result2 = testObj.SetString(key, overwritten);
+            var getResult = testObj.GetString(key);
+            
+            // Assert
+            result1.IsSuccess.Should().BeTrue();
+            result1.KeyOverwritten.Should().BeFalse();
+            result2.IsSuccess.Should().BeTrue();
+            result2.KeyOverwritten.Should().BeTrue();
+
+            getResult.IsDefined(out var sub).Should().BeTrue();
+            sub.Should().Be(overwritten);
         }
     }
     
@@ -429,17 +482,69 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             // Arrange
             await _singleInstanceFixture.InitializeAsync();
             var testObj = _singleInstanceFixture.GetTestInstance();
-            var now = TimeProvider.System.GetUtcNow();
 
             var key = _singleInstanceFixture.GetKey();
             
             // Act
-            await testObj.SetAsync(key, _singleInstanceFixture.TestString);
+            var result = await testObj.SetAsync(key, _singleInstanceFixture.TestString);
             
             // Assert
             var expiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
 
             expiration.Should().BeNull();
+            result.IsSuccess.Should().BeTrue();
+        }
+        
+        [Fact]
+        public async Task ShouldNotOverwriteTheKeyIfOptionsSetToNoOverwriting()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+
+            var key = _singleInstanceFixture.GetKey();
+            var overwritten = _singleInstanceFixture.TestString + _singleInstanceFixture.TestString;
+            
+            // Act
+            var result1 = await testObj.SetStringAsync(key, _singleInstanceFixture.TestString);
+            var result2 = await testObj.SetStringAsync(key, overwritten, opt => opt.WithoutKeyOverwriting());
+            var getResult = await testObj.GetStringAsync(key);
+            
+            // Assert
+            result1.IsSuccess.Should().BeTrue();
+            result1.KeyOverwritten.Should().BeFalse();
+            result1.KeyCollisionOccurred.Should().BeNull();
+            result2.IsSuccess.Should().BeFalse();
+            result2.KeyOverwritten.Should().BeFalse();
+            result2.KeyCollisionOccurred.Should().BeTrue();
+            getResult.IsDefined(out var sub).Should().BeTrue();
+            sub.Should().Be(_singleInstanceFixture.TestString);
+        }
+        
+        [Fact]
+        public async Task ShouldOverwriteTheKeyIfOptionsSetToOverwriting()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+
+            var key = _singleInstanceFixture.GetKey();
+
+            var overwritten = _singleInstanceFixture.TestString + _singleInstanceFixture.TestString;
+            
+            // Act
+            var result1 = await testObj.SetStringAsync(key, _singleInstanceFixture.TestString);
+            var result2 = await testObj.SetStringAsync(key, overwritten);
+            var getResult = await testObj.GetStringAsync(key);
+            
+            // Assert
+            result1.IsSuccess.Should().BeTrue();
+            result1.KeyOverwritten.Should().BeFalse();
+            result2.IsSuccess.Should().BeTrue();
+            result2.KeyOverwritten.Should().BeTrue();
+
+            getResult.IsDefined(out var sub).Should().BeTrue();
+            sub.Should().Be(overwritten);
         }
     }
     
@@ -479,23 +584,24 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            _ = testObj.Get(key);
+            var result = testObj.Get(key);
             
             var postGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
             
             // Assert
             preGetExpiration.Should().NotBeNull();
             postGetExpiration.Should().NotBeNull();
+            result.IsSuccess.Should().BeTrue();
             preGetExpiration.Should().Be(postGetExpiration);
         }
         
         public static object[][] SlidingExpirationTestCases()
             => new[]
             {
-                new object[] { new DistributedCacheEntryOptions(){ SlidingExpiration = TimeSpan.FromMinutes(1) } },
-                new object[] { new DistributedCacheEntryOptions(){ AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5), AbsoluteExpiration = TimeProvider.System.GetUtcNow().Add(TimeSpan.FromMinutes(10)), SlidingExpiration = TimeSpan.FromMinutes(1)} },
-                new object[] { new DistributedCacheEntryOptions(){ AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5), SlidingExpiration = TimeSpan.FromMinutes(1) } },
-                new object[] { new DistributedCacheEntryOptions(){ SlidingExpiration = TimeSpan.FromMinutes(1), AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) } }
+                new object[] { new DistributedCacheEntryOptions(){ SlidingExpiration = TimeSpan.FromMinutes(3) } },
+                new object[] { new DistributedCacheEntryOptions(){ AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(6), AbsoluteExpiration = TimeProvider.System.GetUtcNow().Add(TimeSpan.FromMinutes(10)), SlidingExpiration = TimeSpan.FromMinutes(1)} },
+                new object[] { new DistributedCacheEntryOptions(){ AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(7), SlidingExpiration = TimeSpan.FromMinutes(3) } },
+                new object[] { new DistributedCacheEntryOptions(){ SlidingExpiration = TimeSpan.FromMinutes(4), AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) } }
             };
         
         [Theory]
@@ -510,13 +616,13 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             var now = TimeProvider.System.GetUtcNow();
             
             // Act
-            testObj.SetString(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
+            _ = testObj.SetString(key, _singleInstanceFixture.TestString, x => x.WithExpirationOptions(options));
             
             var preGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            _ = testObj.Get(key);
+            var result = testObj.Get(key);
             
             var postGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
             
@@ -534,9 +640,48 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             preGetExpiration.Should().NotBeNull();
             postGetExpiration.Should().NotBeNull();
             preGetExpiration.Should().NotBe(postGetExpiration);
+            result.IsSuccess.Should().BeTrue();
             postGetExpiration!.Value.Should().BeAfter(preGetExpiration!.Value);
             postGetExpiration.Should().BeCloseTo(postExpAsDt, _singleInstanceFixture.AcceptedDelta);
             preGetExpiration.Should().BeCloseTo(preExpAsDt, _singleInstanceFixture.AcceptedDelta);
+        }
+
+        [Fact]
+        [SuppressMessage("ReSharper", "MethodHasAsyncOverload")]
+        public async Task ShouldReturnDefinedResultWithCorrectValueWhenKeyExists()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+            var key = _singleInstanceFixture.GetKey();
+            
+            // Act
+            testObj.SetString(key, _singleInstanceFixture.TestString);
+            
+            var result = testObj.GetString(key);
+            
+            // Assert
+            result.IsDefined(out var sub);
+            sub.Should().Be(_singleInstanceFixture.TestString);
+        }
+        
+        [Fact]
+        [SuppressMessage("ReSharper", "MethodHasAsyncOverload")]
+        public async Task ShouldReturnResultWithNotFoundFlagWhenKeyDoesntExist()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+            var key = _singleInstanceFixture.GetKey();
+            
+            // Act
+            var result = testObj.GetString(key);
+            
+            // Assert
+            result.IsDefined(out var sub).Should().BeFalse();
+            sub.Should().BeNull();
+            result.IsSuccess.Should().BeFalse();
+            result.KeyNotFound.Should().BeTrue();
         }
     }
     
@@ -575,11 +720,12 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            _ = await testObj.GetAsync(key);
+            var result = await testObj.GetAsync(key);
             
             var postGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
             // Assert
+            result.IsSuccess.Should().BeTrue();
             preGetExpiration.Should().NotBeNull();
             postGetExpiration.Should().NotBeNull();
             preGetExpiration.Should().Be(postGetExpiration);
@@ -611,7 +757,7 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            _ = await testObj.GetAsync(key);
+            var result = await testObj.GetAsync(key);
             
             var postGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
@@ -628,10 +774,47 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             
             preGetExpiration.Should().NotBeNull();
             postGetExpiration.Should().NotBeNull();
+            result.IsSuccess.Should().BeTrue();
             preGetExpiration.Should().NotBe(postGetExpiration);
             postGetExpiration!.Value.Should().BeAfter(preGetExpiration!.Value);
             postGetExpiration.Should().BeCloseTo(postExpAsDt, _singleInstanceFixture.AcceptedDelta);
             preGetExpiration.Should().BeCloseTo(preExpAsDt, _singleInstanceFixture.AcceptedDelta);
+        }
+        
+        [Fact]
+        public async Task ShouldReturnDefinedResultWithCorrectValueWhenKeyExists()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+            var key = _singleInstanceFixture.GetKey();
+            
+            // Act
+            await testObj.SetStringAsync(key, _singleInstanceFixture.TestString);
+            
+            var result = await testObj.GetStringAsync(key);
+            
+            // Assert
+            result.IsDefined(out var sub);
+            sub.Should().Be(_singleInstanceFixture.TestString);
+        }
+        
+        [Fact]
+        public async Task ShouldReturnResultWithNotFoundFlagWhenKeyDoesntExist()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+            var key = _singleInstanceFixture.GetKey();
+            
+            // Act
+            var result = await testObj.GetStringAsync(key);
+            
+            // Assert
+            result.IsDefined(out var sub).Should().BeFalse();
+            sub.Should().BeNull();
+            result.IsSuccess.Should().BeFalse();
+            result.KeyNotFound.Should().BeTrue();
         }
     }
     
@@ -671,13 +854,15 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            testObj.Refresh(key);
+            var result = testObj.Refresh(key);
             
             var postGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
             
             // Assert
             preGetExpiration.Should().NotBeNull();
             postGetExpiration.Should().NotBeNull();
+            result.KeyHasNoSlidingExpiration.Should().BeTrue();
+            result.IsSuccess.Should().BeFalse();
             preGetExpiration.Should().Be(postGetExpiration);
         }
         
@@ -708,7 +893,7 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            testObj.Refresh(key);
+            var result = testObj.Refresh(key);
             
             var postGetExpiration = testObj.GetDatabase().KeyExpireTime(key);
             
@@ -725,6 +910,8 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             
             preGetExpiration.Should().NotBeNull();
             postGetExpiration.Should().NotBeNull();
+            result.IsSuccess.Should().BeTrue();
+            result.KeyHasNoSlidingExpiration.Should().BeFalse();
             preGetExpiration.Should().NotBe(postGetExpiration);
             postGetExpiration!.Value.Should().BeAfter(preGetExpiration!.Value);
             postGetExpiration.Should().BeCloseTo(postExpAsDt, _singleInstanceFixture.AcceptedDelta);
@@ -767,13 +954,15 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            await testObj.RefreshAsync(key);
+            var result = await testObj.RefreshAsync(key);
             
             var postGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
             // Assert
             preGetExpiration.Should().NotBeNull();
             postGetExpiration.Should().NotBeNull();
+            result.IsSuccess.Should().BeFalse();
+            result.KeyHasNoSlidingExpiration.Should().BeTrue();
             preGetExpiration.Should().Be(postGetExpiration);
         }
         
@@ -804,7 +993,7 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
 
             await Task.Delay(_singleInstanceFixture.Delay);
             
-            await testObj.RefreshAsync(key);
+            var result = await testObj.RefreshAsync(key);
             
             var postGetExpiration = await (testObj.GetDatabase()).KeyExpireTimeAsync(key);
             
@@ -821,10 +1010,114 @@ public class RedisExplorerTests : ICollectionFixture<SingleInstanceFixture>
             
             preGetExpiration.Should().NotBeNull();
             postGetExpiration.Should().NotBeNull();
+            result.IsSuccess.Should().BeTrue();
+            result.KeyHasNoSlidingExpiration.Should().BeFalse();
             preGetExpiration.Should().NotBe(postGetExpiration);
             postGetExpiration!.Value.Should().BeAfter(preGetExpiration!.Value);
             postGetExpiration.Should().BeCloseTo(postExpAsDt, _singleInstanceFixture.AcceptedDelta);
             preGetExpiration.Should().BeCloseTo(preExpAsDt, _singleInstanceFixture.AcceptedDelta);
+        }
+    }
+    
+    [Collection("SingleInstanceIntegrationTests")]
+    public class Remove
+    {
+        private readonly SingleInstanceFixture _singleInstanceFixture;
+
+        public Remove(SingleInstanceFixture singleInstanceFixture)
+        {
+            _singleInstanceFixture = singleInstanceFixture;
+        }
+
+        [Fact]
+        [SuppressMessage("ReSharper", "MethodHasAsyncOverload")]
+        public async Task ShouldReturnUnsuccessfulResultWhenKeyDoesntExist()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+            var key = _singleInstanceFixture.GetKey();
+            
+            // Act
+            var result = testObj.Remove(key);
+            var getResult = testObj.GetString(key);
+            
+            // Assert
+            result.KeyNotFound.Should().BeTrue();
+            result.IsSuccess.Should().BeFalse();
+            getResult.IsSuccess.Should().BeFalse();
+        }
+        
+        
+        [Fact]
+        [SuppressMessage("ReSharper", "MethodHasAsyncOverload")]
+        public async Task ShouldReturnSuccessfulResultWhenKeyExists()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+            var key = _singleInstanceFixture.GetKey();
+            
+            // Act
+            var setResult = testObj.SetString(key, _singleInstanceFixture.TestString);
+            var result = testObj.Remove(key);
+            var getResult = testObj.GetString(key);
+            
+            // Assert
+            setResult.IsSuccess.Should().BeTrue();
+            result.KeyNotFound.Should().BeFalse();
+            result.IsSuccess.Should().BeTrue();
+            getResult.IsSuccess.Should().BeFalse();
+        }
+    }
+    
+    [Collection("SingleInstanceIntegrationTests")]
+    public class RemoveAsync
+    {
+        private readonly SingleInstanceFixture _singleInstanceFixture;
+
+        public RemoveAsync(SingleInstanceFixture singleInstanceFixture)
+        {
+            _singleInstanceFixture = singleInstanceFixture;
+        }
+
+        [Fact]
+        public async Task ShouldReturnUnsuccessfulResultWhenKeyDoesntExist()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+            var key = _singleInstanceFixture.GetKey();
+            
+            // Act
+            var result = await testObj.RemoveAsync(key);
+            var getResult = await testObj.GetStringAsync(key);
+            
+            // Assert
+            result.KeyNotFound.Should().BeTrue();
+            result.IsSuccess.Should().BeFalse();
+            getResult.IsSuccess.Should().BeFalse();
+        }
+        
+        
+        [Fact]
+        public async Task ShouldReturnSuccessfulResultWhenKeyExists()
+        {
+            // Arrange
+            await _singleInstanceFixture.InitializeAsync();
+            var testObj = _singleInstanceFixture.GetTestInstance();
+            var key = _singleInstanceFixture.GetKey();
+            
+            // Act
+            var setResult = await testObj.SetStringAsync(key, _singleInstanceFixture.TestString);
+            var result = await testObj.RemoveAsync(key);
+            var getResult = await testObj.GetStringAsync(key);
+            
+            // Assert
+            setResult.IsSuccess.Should().BeTrue();
+            result.KeyNotFound.Should().BeFalse();
+            result.IsSuccess.Should().BeTrue();
+            getResult.IsSuccess.Should().BeFalse();
         }
     }
 

@@ -53,7 +53,7 @@ public static class LuaScripts
     /// Script that HGET's the key's value, refreshes the expiration and returns the value, if the key is not found NIL is returned.
     /// </summary>
     public const string GetAndRefreshScript = """
-                                                              local sub = function (key)
+                                                              local hgetall = function (key)
                                                                 local bulk = redis.call('HGETALL', key)
                                               	                 local result = {}
                                               	                 local nextkey
@@ -67,21 +67,22 @@ public static class LuaScripts
                                               	                 return result
                                                               end
                                               
-                                                              local result = sub(KEYS[1])
+                                                              local result = hgetall(KEYS[1])
                                               
                                                               if next(result) == nil then
                                                                 return nil
                                                               end
                                               
-                                                              local sldexp = tonumber(result['sldexp'])
                                                               local absexp = tonumber(result['absexp'])
+                                                              local sldexp = tonumber(result['sldexp'])
+                                                              local data = result['data']
                                                               
                                                               if ARGV[1] == -1 then
-                                                                  return result['data']
+                                                                  return data
                                                               end
                                               
                                                               if sldexp == -1 then
-                                                                  return result['data']
+                                                                  return data
                                                               end
                                               
                                                               local time = tonumber(redis.call('TIME')[1])
@@ -89,7 +90,7 @@ public static class LuaScripts
                                                               if absexp ~= -1 then
                                                                 relexp = absexp - time
                                                                 if relexp <= 0 then
-                                                                  return result['data']
+                                                                  return data
                                                                 end
                                                               end
                                               
@@ -106,13 +107,13 @@ public static class LuaScripts
                                                               
                                                               local expire = redis.call('EXPIRE', KEYS[1], exp, 'XX')
                                                               if expire == 1 then
-                                                                return result['data']
+                                                                return data
                                                               end
                                                               
-                                                              redis.call('HSET', KEYS[1], 'absexp', absexp, 'sldexp', sldexp, 'data', result['data'])
+                                                              redis.call('HSET', KEYS[1], 'absexp', absexp, 'sldexp', sldexp, 'data', data)
                                                               redis.call('EXPIRE', KEYS[1], exp)
                                                               
-                                                              return result['data']
+                                                              return data
                                               """;
     
     // KEYS[1] = = key
@@ -122,29 +123,15 @@ public static class LuaScripts
     /// Script that refreshes the expiration and returns '1', if the key is not found NIL is returned.
     /// </summary>
     public const string RefreshScript = """
-                                                        local sub = function (key)
-                                                          local bulk = redis.call('HGET', KEYS[1], 'sldexp', 'absexp')
-                                        	                 local result = {}
-                                        	                 local nextkey
-                                        	                 for i, v in ipairs(bulk) do
-                                        		                 if i % 2 == 1 then
-                                        			                 nextkey = v
-                                        		                 else
-                                        			                 result[nextkey] = v
-                                        		                 end
-                                        	                 end
-                                        	                 return result
-                                                        end
-                                        
-                                                        local result = sub(KEYS[1])
-                                        
-                                                        if next(result) == nil then
+                                                        local result = redis.call('HMGET', KEYS[1], 'absexp', 'sldexp')
+
+                                                        if result[1] == nil then
                                                           return nil
                                                         end
-                                                        
-                                                        local sldexp = tonumber(result['sldexp'])
-                                                        local absexp = tonumber(result['absexp'])
-                                        
+     
+                                                        local absexp = tonumber(result[1])                
+                                                        local sldexp = tonumber(result[2])
+
                                                         if sldexp == -1 then
                                                           return '4'
                                                         end

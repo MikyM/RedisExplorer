@@ -16,6 +16,7 @@ public abstract class ExplorerResult : IExplorerResult, IEquatable<ExplorerResul
         Key = key;
         RedisResult = redisResult;
         Id = Guid.NewGuid().ToString();
+        ObtainedAt = TimeProvider.System.GetUtcNow();
     }
 
     /// <inheritdoc/>
@@ -56,7 +57,7 @@ public abstract class ExplorerResult : IExplorerResult, IEquatable<ExplorerResul
         => Id.GetHashCode();
 
     /// <inheritdoc/>
-    public override string ToString() => $"{nameof(ExplorerResult)}: {Key} - {IsSuccess}";
+    public override string ToString() => $"{nameof(ExplorerResult)} - Id: {Id}, Key: {Key}, IsSuccess: {IsSuccess}";
 }
 
 /// <inheritdoc cref="IExplorerResult{T}"/>
@@ -87,5 +88,5 @@ public abstract class ExplorerResult<TValue> : ExplorerResult, IExplorerResult<T
     public TValue? Value { get; init; }
     
     /// <inheritdoc/>
-    public override string ToString() => $"{nameof(ExplorerResult)}<{typeof(TValue).Name}>: {Key} - {IsSuccess} - {(Value is null ? "null" : "non-null")}";
+    public override string ToString() => $"{nameof(ExplorerResult)}<{typeof(TValue).Name}> - Id: {Id}, Key: {Key}, IsSuccess: {IsSuccess}, Value info: {(Value is null ? "null" : "non-null")}";
 }
