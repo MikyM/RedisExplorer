@@ -828,7 +828,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             {
                 result = redisDatabase.ScriptEvaluate(LuaScripts.GetAndRefreshScript,
                     new[] { actualKey },
-                    GetHashMembers(actualOptions.ShouldRefresh));
+                    GetHashMembers(actualOptions.ShouldRefresh), CommandFlags.NoScriptCache);
             }
         }
         else
@@ -945,7 +945,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             {
                 result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.GetAndRefreshScript,
                     new[] { actualKey },
-                    GetHashMembers(actualOptions.ShouldRefresh));
+                    GetHashMembers(actualOptions.ShouldRefresh), CommandFlags.NoScriptCache);
             }
         }
         else
@@ -1007,7 +1007,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             {
                 result = redisDatabase.ScriptEvaluate(LuaScripts.RefreshScript,
                     new[] { actualKey },
-                    HashMembersEmpty);
+                    HashMembersEmpty, CommandFlags.NoScriptCache);
             }
         }
         else
@@ -1041,7 +1041,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             {
                 result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.RefreshScript,
                     new[] { actualKey },
-                    HashMembersEmpty);
+                    HashMembersEmpty, CommandFlags.NoScriptCache);
             }
         }
         else
@@ -1387,7 +1387,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             }
             catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
             {
-                result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.SetScript, new[] { actualKey }, setMembers
+                result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.SetScript, new[] { actualKey }, setMembers, CommandFlags.NoScriptCache
                 );
             } 
         }
@@ -1420,7 +1420,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             }
             catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
             {
-                result = redisDatabase.ScriptEvaluate(LuaScripts.SetScript, new[] { actualKey }, setMembers
+                result = redisDatabase.ScriptEvaluate(LuaScripts.SetScript, new[] { actualKey }, setMembers, CommandFlags.NoScriptCache
                 );
             } 
         }
@@ -1550,7 +1550,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
             {
                 result = redisDatabase.ScriptEvaluate(LuaScripts.RemoveScript, new[] { actualKey },
-                    HashMembersEmpty);
+                    HashMembersEmpty, CommandFlags.NoScriptCache);
             }
         }
         else
@@ -1581,7 +1581,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
             {
                 result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.RemoveScript, new[] { actualKey },
-                    HashMembersEmpty);
+                    HashMembersEmpty, CommandFlags.NoScriptCache);
             }
         }
         else
