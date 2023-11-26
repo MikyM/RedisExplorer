@@ -25,7 +25,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     private static readonly RedisValue[] HashMembersEmpty = Array.Empty<RedisValue>();
     private static RedisValue[] GetHashMembers(bool shouldRefresh) => shouldRefresh ? GetHashMembersWithRefresh : HashMembersSingleNotPresent;
     
-    private Dictionary<string,string> _knownInternalScripts = [];
+    private Dictionary<string,byte[]> _knownInternalScripts = [];
     
     /// <summary>
     /// Json options name.
@@ -145,65 +145,10 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         PreHashScripts();
     }
 
-    private string RefreshScript(bool forceNonSHA = false)
-    {
-        string script;
-        if (UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies && !forceNonSHA)
-        {
-            script = _knownInternalScripts[nameof(LuaScripts.RefreshScript)];
-        }
-        else
-        {
-            script = LuaScripts.RefreshScript;
-        }
-
-        return script;
-    }
+    private bool ShouldUseSHAOptimization(bool forceNonSHA = false)
+        => UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies;
     
-    private string GetScript(bool forceNonSHA = false)
-    {
-        string script;
-        if (UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies && !forceNonSHA)
-        {
-            script = _knownInternalScripts[nameof(LuaScripts.GetAndRefreshScript)];
-        }
-        else
-        {
-            script = LuaScripts.GetAndRefreshScript;
-        }
-
-        return script;
-    }
-
-    private string SetScript(bool forceNonSHA = false)
-    {
-        string script;
-        if (UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies && !forceNonSHA)
-        {
-            script = _knownInternalScripts[nameof(LuaScripts.SetScript)];
-        }
-        else
-        {
-            script = LuaScripts.SetScript;
-        }
-
-        return script;
-    }
-    
-    private string RemoveScript(bool forceNonSHA = false)
-    {
-        string script;
-        if (UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies && !forceNonSHA)
-        {
-            script = _knownInternalScripts[nameof(LuaScripts.RemoveScript)];
-        }
-        else
-        {
-            script = LuaScripts.RemoveScript;
-        }
-
-        return script;
-    }
+    private const string NoScript = "NOSCRIPT";
 
     private void PreHashScripts()
     {
@@ -225,12 +170,10 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     /// </summary>
     /// <param name="script">Script.</param>
     /// <returns>Hash.</returns>
-    public static string CalculateScriptHash(string script)
+    public static byte[] CalculateScriptHash(string script)
     {
         var scriptBytes = Encoding.ASCII.GetBytes(script);
-        var hashBytes = SHA1.HashData(scriptBytes);
-        var hashString = BitConverter.ToString(hashBytes).Replace("-", "");
-        return hashString;
+        return SHA1.HashData(scriptBytes);
     }
     
     /// <inheritdoc/>
@@ -871,16 +814,26 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         
         var actualKey = Prefix.Append(key);
         
-        // This also resets the LRU status as desired.
-        // Calculations regarding expiration done server side.
-        var result = redisDatabase.ScriptEvaluate(GetScript(),
-            new[] { actualKey },
-            GetHashMembers(actualOptions.ShouldRefresh));
+        RedisResult result;
 
-        // this probably means the script was not loaded yet, lets retry with full script
-        if (ShouldRetryDueToSHAOptimization(result))
+        if (ShouldUseSHAOptimization())
         {
-            result = redisDatabase.ScriptEvaluate(GetScript(true),
+            try
+            {
+                result = redisDatabase.ScriptEvaluate(_knownInternalScripts[nameof(LuaScripts.GetAndRefreshScript)],
+                    new[] { actualKey },
+                    GetHashMembers(actualOptions.ShouldRefresh));
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
+            {
+                result = redisDatabase.ScriptEvaluate(LuaScripts.GetAndRefreshScript,
+                    new[] { actualKey },
+                    GetHashMembers(actualOptions.ShouldRefresh));
+            }
+        }
+        else
+        {
+            result = redisDatabase.ScriptEvaluate(LuaScripts.GetAndRefreshScript,
                 new[] { actualKey },
                 GetHashMembers(actualOptions.ShouldRefresh));
         }
@@ -977,17 +930,27 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         var actualOptions = options ?? GetOperationOptions.Default;
         
         var actualKey = Prefix.Append(key);
-        
-        // This also resets the LRU status as desired.
-        // Calculations regarding expiration done server side.
-        var result = await redisDatabase.ScriptEvaluateAsync(GetScript(),
-            new[] { actualKey },
-            GetHashMembers(actualOptions.ShouldRefresh));
-        
-        // this probably means the script was not loaded yet, lets retry with full script
-        if (ShouldRetryDueToSHAOptimization(result))
+
+        RedisResult result;
+
+        if (ShouldUseSHAOptimization())
         {
-            result = await redisDatabase.ScriptEvaluateAsync(GetScript(true),
+            try
+            {
+                result = await redisDatabase.ScriptEvaluateAsync(_knownInternalScripts[nameof(LuaScripts.GetAndRefreshScript)],
+                    new[] { actualKey },
+                    GetHashMembers(actualOptions.ShouldRefresh));
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
+            {
+                result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.GetAndRefreshScript,
+                    new[] { actualKey },
+                    GetHashMembers(actualOptions.ShouldRefresh));
+            }
+        }
+        else
+        {
+            result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.GetAndRefreshScript,
                 new[] { actualKey },
                 GetHashMembers(actualOptions.ShouldRefresh));
         }
@@ -1031,20 +994,29 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         var actualKey = Prefix.Append(key);
         
-        // This also resets the LRU status as desired.
-        // Calculations regarding expiration done server side.
-        var result = redisDatabase.ScriptEvaluate(RefreshScript(),
-            new[] { actualKey },
-            HashMembersEmpty);
-
-        // this probably means the script was not loaded yet, lets retry with full script
-        if (ShouldRetryDueToSHAOptimization(result))
+        RedisResult result;
+        if (ShouldUseSHAOptimization())
         {
-            result = redisDatabase.ScriptEvaluate(RefreshScript(true),
+            try
+            {
+                result = redisDatabase.ScriptEvaluate(_knownInternalScripts[nameof(LuaScripts.RefreshScript)],
+                    new[] { actualKey },
+                    HashMembersEmpty);
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
+            {
+                result = redisDatabase.ScriptEvaluate(LuaScripts.RefreshScript,
+                    new[] { actualKey },
+                    HashMembersEmpty);
+            }
+        }
+        else
+        {
+            result = redisDatabase.ScriptEvaluate(LuaScripts.RefreshScript,
                 new[] { actualKey },
                 HashMembersEmpty);
         }
-
+        
         return result;
     }
     
@@ -1055,21 +1027,30 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         var (_, _, redisDatabase) = await ConnectAsync(token);
 
         var actualKey = Prefix.Append(key);
-        
-        // This also resets the LRU status as desired.
-        // Calculations regarding expiration done server side.
-        var result = await redisDatabase.ScriptEvaluateAsync(RefreshScript(),
-            new[] { actualKey },
-            HashMembersEmpty);
-        
-        // this probably means the script was not loaded yet, lets retry with full script
-        if (ShouldRetryDueToSHAOptimization(result))
+
+        RedisResult result;
+        if (ShouldUseSHAOptimization())
         {
-            result = await redisDatabase.ScriptEvaluateAsync(RefreshScript(true),
+            try
+            {
+                result = await redisDatabase.ScriptEvaluateAsync(_knownInternalScripts[nameof(LuaScripts.RefreshScript)],
+                    new[] { actualKey },
+                    HashMembersEmpty);
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
+            {
+                result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.RefreshScript,
+                    new[] { actualKey },
+                    HashMembersEmpty);
+            }
+        }
+        else
+        {
+            result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.RefreshScript,
                 new[] { actualKey },
                 HashMembersEmpty);
         }
-
+        
         return result;
     }
     
@@ -1396,14 +1377,24 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         var setMembers = GetSetMembers(value, actualOptions, entryOptions);
 
-        var result = await redisDatabase.ScriptEvaluateAsync(SetScript(), new[] { Prefix.Append(key) },
-            setMembers);
-
-        // this probably means the script was not loaded yet, lets retry with full script
-        if (ShouldRetryDueToSHAOptimization(result))
+        RedisResult result;
+        if (ShouldUseSHAOptimization())
         {
-            result = await redisDatabase.ScriptEvaluateAsync(SetScript(true), new[] { actualKey }, setMembers
-            );
+            try
+            {
+                result = await redisDatabase.ScriptEvaluateAsync(_knownInternalScripts[nameof(LuaScripts.SetScript)], new[] { actualKey }, setMembers
+                );
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
+            {
+                result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.SetScript, new[] { actualKey }, setMembers
+                );
+            } 
+        }
+        else
+        {
+            result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.SetScript, new[] { Prefix.Append(key) },
+                setMembers);
         }
 
         return result;
@@ -1419,12 +1410,24 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         
         var actualKey = Prefix.Append(key);
 
-        var result = redisDatabase.ScriptEvaluate(SetScript(), new[] { actualKey }, setMembers);
-        
-        // this probably means the script was not loaded yet, lets retry with full script
-        if (ShouldRetryDueToSHAOptimization(result))
+        RedisResult result;
+        if (ShouldUseSHAOptimization())
         {
-            result = redisDatabase.ScriptEvaluate(SetScript(true), new[] { actualKey }, setMembers);
+            try
+            {
+                result = redisDatabase.ScriptEvaluate(_knownInternalScripts[nameof(LuaScripts.SetScript)], new[] { actualKey }, setMembers
+                );
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
+            {
+                result = redisDatabase.ScriptEvaluate(LuaScripts.SetScript, new[] { actualKey }, setMembers
+                );
+            } 
+        }
+        else
+        {
+            result = redisDatabase.ScriptEvaluate(LuaScripts.SetScript, new[] { Prefix.Append(key) },
+                setMembers);
         }
 
         return result;
@@ -1536,16 +1539,26 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         var actualKey = Prefix.Append(key);
 
-        var result = redisDatabase.ScriptEvaluate(RemoveScript(), new[] { actualKey },
-            HashMembersEmpty);
-        
-        // this probably means the script was not loaded yet, lets retry with full script
-        if (ShouldRetryDueToSHAOptimization(result))
+        RedisResult result;
+        if (ShouldUseSHAOptimization())
         {
-            result = redisDatabase.ScriptEvaluate(RemoveScript(true), new[] { actualKey },
+            try
+            {
+                result = redisDatabase.ScriptEvaluate(_knownInternalScripts[nameof(LuaScripts.RemoveScript)], new[] { actualKey },
+                    HashMembersEmpty);
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
+            {
+                result = redisDatabase.ScriptEvaluate(LuaScripts.RemoveScript, new[] { actualKey },
+                    HashMembersEmpty);
+            }
+        }
+        else
+        {
+            result = redisDatabase.ScriptEvaluate(LuaScripts.RemoveScript, new[] { actualKey },
                 HashMembersEmpty);
         }
-        
+
         return result;
     }
     
@@ -1557,13 +1570,23 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         var actualKey = Prefix.Append(key);
 
-        var result = await redisDatabase.ScriptEvaluateAsync(RemoveScript(), new[] { actualKey },
-            HashMembersEmpty);
-        
-        // this probably means the script was not loaded yet, lets retry with full script
-        if (ShouldRetryDueToSHAOptimization(result))
+        RedisResult result;
+        if (ShouldUseSHAOptimization())
         {
-            result = await redisDatabase.ScriptEvaluateAsync(RemoveScript(true), new[] { actualKey },
+            try
+            {
+                result = await redisDatabase.ScriptEvaluateAsync(_knownInternalScripts[nameof(LuaScripts.RemoveScript)], new[] { actualKey },
+                    HashMembersEmpty);
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains(NoScript))
+            {
+                result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.RemoveScript, new[] { actualKey },
+                    HashMembersEmpty);
+            }
+        }
+        else
+        {
+            result = await redisDatabase.ScriptEvaluateAsync(LuaScripts.RemoveScript, new[] { actualKey },
                 HashMembersEmpty);
         }
 
@@ -1571,10 +1594,6 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     #endregion
-
-    private bool ShouldRetryDueToSHAOptimization(RedisResult result)
-        => UsingProxy.HasValue && UsingProxy.Value && Options.UseBandwidthOptimizationForProxies &&
-           result.Resp3Type == ResultType.Error && result.ToString().Contains("NOSCRIPT");
 
     /// <inheritdoc />
     public long? GetExpirationInSeconds(DateTimeOffset creationTime, DateTimeOffset? absoluteExpiration, DistributedCacheEntryOptions? options)
