@@ -1,18 +1,18 @@
 ﻿namespace RedisExplorer.OperationResults;
 
 
-/// <inheritdoc cref="IGetOperationResult{T}"/>
+/// <inheritdoc cref="IGetResult{TValue}"/>
 /// <inheritdoc cref="ExplorerResult"/>
 [PublicAPI]
-public class GetOperationResult<TValue> : ExplorerResult<TValue>, IGetOperationResult<TValue>
+public class GetResult<TValue> : ExplorerResult<TValue>, IGetResult<TValue>
 {
     /// <summary>
-    /// Creates a new instance of <see cref="GetOperationResult{T}"/>.
+    /// Creates a new instance of <see cref="GetResult{TValue}"/>.
     /// </summary>
     /// <param name="key">The key.</param>
     /// <param name="redisResult">The SE.Redis result.</param>
     /// <param name="value">The value.</param>
-    public GetOperationResult(string key, RedisResult redisResult, TValue? value = default) : base(key, redisResult, value)
+    public GetResult(string key, RedisResult redisResult, TValue? value = default) : base(key, redisResult, value)
     {
     }
     

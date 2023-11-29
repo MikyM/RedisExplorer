@@ -4,7 +4,7 @@
 /// Represents a result of a REFRESH operation against Redis performed with RedisExplorer.
 /// </summary>
 [PublicAPI]
-public interface IRefreshOperationResult : IExplorerResult
+public interface IRefreshResult : IExplorerResult
 {
     /// <summary>
     /// Whether the key was not found.

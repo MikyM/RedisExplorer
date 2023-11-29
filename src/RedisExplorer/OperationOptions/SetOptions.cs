@@ -7,12 +7,12 @@ namespace RedisExplorer;
 /// Options for SET operations.
 /// </summary>
 [PublicAPI]
-public sealed class SetOperationOptions : ExplorerOperationOptions
+public sealed class SetOptions : ExplorerOperationOptions
 {
     /// <summary>
     /// The default options.
     /// </summary>
-    public static SetOperationOptions Default { get; } = new();
+    public static SetOptions Default { get; } = new();
 
     /// <summary>
     /// Gets expiration options.
@@ -30,7 +30,7 @@ public sealed class SetOperationOptions : ExplorerOperationOptions
     /// <remarks>This adds one more Redis call to the script.</remarks>
     /// <param name="shouldOverwrite">Whether the operation should overwrite existing key.</param>
     /// <returns>Current instance for chaining.</returns>
-    public SetOperationOptions WithoutKeyOverwriting(bool shouldOverwrite = false)
+    public SetOptions WithoutKeyOverwriting(bool shouldOverwrite = false)
     {
         OverwriteIfKeyExists = shouldOverwrite;
         return this;
@@ -41,7 +41,7 @@ public sealed class SetOperationOptions : ExplorerOperationOptions
     /// </summary>
     /// <param name="expirationOptions">The options to set.</param>
     /// <returns>Current instance for chaining.</returns>
-    public SetOperationOptions WithExpirationOptions(DistributedCacheEntryOptions expirationOptions)
+    public SetOptions WithExpirationOptions(DistributedCacheEntryOptions expirationOptions)
     {
         ExpirationOptions = expirationOptions;
         return this;
@@ -49,7 +49,7 @@ public sealed class SetOperationOptions : ExplorerOperationOptions
 
     /// <inheritdoc/>
     public override object Clone()
-        => new SetOperationOptions
+        => new SetOptions
         {
             ExpirationOptions = ExpirationOptions,
             OverwriteIfKeyExists = OverwriteIfKeyExists

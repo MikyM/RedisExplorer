@@ -4,7 +4,7 @@
 /// Represents a result of a GET operation against Redis performed with RedisExplorer.
 /// </summary>
 [PublicAPI]
-public interface IGetOperationResult<TValue> : IExplorerResult<TValue>
+public interface IGetResult<TValue> : IExplorerResult<TValue>
 {
     /// <summary>
     /// Whether the key was not found.

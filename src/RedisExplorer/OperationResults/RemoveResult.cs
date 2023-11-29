@@ -1,17 +1,17 @@
 ﻿namespace RedisExplorer.OperationResults;
 
 
-/// <inheritdoc cref="IRemoveOperationResult"/>
+/// <inheritdoc cref="IRemoveResult"/>
 /// <inheritdoc cref="ExplorerResult"/>
 [PublicAPI]
-public class RemoveOperationResult : ExplorerResult, IRemoveOperationResult
+public class RemoveResult : ExplorerResult, IRemoveResult
 {
     /// <summary>
-    /// Creates a new instance of <see cref="RemoveOperationResult"/>.
+    /// Creates a new instance of <see cref="RemoveResult"/>.
     /// </summary>
     /// <param name="key">The key.</param>
     /// <param name="redisResult">The SE.Redis result.</param>
-    public RemoveOperationResult(string key, RedisResult redisResult) : base(key, redisResult)
+    public RemoveResult(string key, RedisResult redisResult) : base(key, redisResult)
     {
     }
     

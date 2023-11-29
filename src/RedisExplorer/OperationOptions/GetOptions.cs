@@ -5,12 +5,12 @@ namespace RedisExplorer;
 /// Options for GET operations.
 /// </summary>
 [PublicAPI]
-public sealed class GetOperationOptions : ExplorerOperationOptions
+public sealed class GetOptions : ExplorerOperationOptions
 {
     /// <summary>
     /// The default options.
     /// </summary>
-    public static GetOperationOptions Default { get; } = new();
+    public static GetOptions Default { get; } = new();
     
     /// <summary>
     /// Gets whether the operation should also refresh expiration if applicable. Default is true.
@@ -22,7 +22,7 @@ public sealed class GetOperationOptions : ExplorerOperationOptions
     /// </summary>
     /// <param name="shouldRefresh">Whether the operation should refresh the expiration.</param>
     /// <returns>Current instance for chaining.</returns>
-    public GetOperationOptions WithoutRefreshing(bool shouldRefresh = false)
+    public GetOptions WithoutRefreshing(bool shouldRefresh = false)
     {
         ShouldRefresh = shouldRefresh;
         return this;
@@ -30,7 +30,7 @@ public sealed class GetOperationOptions : ExplorerOperationOptions
 
     /// <inheritdoc/>
     public override object Clone()
-        => new GetOperationOptions
+        => new GetOptions
         {
             ShouldRefresh = ShouldRefresh
         };

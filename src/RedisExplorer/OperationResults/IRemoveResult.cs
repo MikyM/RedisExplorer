@@ -4,7 +4,7 @@
 /// Represents a result of a REMOVE operation against Redis performed with RedisExplorer.
 /// </summary>
 [PublicAPI]
-public interface IRemoveOperationResult : IExplorerResult
+public interface IRemoveResult : IExplorerResult
 {
     /// <summary>
     /// Whether the key was not found.

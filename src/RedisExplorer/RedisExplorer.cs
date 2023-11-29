@@ -509,7 +509,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         
         ArgumentNullException.ThrowIfNull(key);
 
-        var result = await GetAsyncPrivate(key, (GetOperationOptions?)null, token);
+        var result = await GetAsyncPrivate(key, (GetOptions?)null, token);
 
         return HandleGetResult(key, result, RedisResultToBytes);
     }
@@ -599,11 +599,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region GetString
 
     /// <inheritdoc />
-    public IGetOperationResult<string> GetString(string key, Action<GetOperationOptions> options)
+    public IGetResult<string> GetString(string key, Action<GetOptions> options)
         => GetString(key, GetOptionsFromAction(options));
 
     /// <inheritdoc />
-    public IGetOperationResult<string> GetString(string key, GetOperationOptions options)
+    public IGetResult<string> GetString(string key, GetOptions options)
     {
         CheckDisposed();
         
@@ -616,7 +616,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public IGetOperationResult<string> GetString(string key)
+    public IGetResult<string> GetString(string key)
     {
         CheckDisposed();
         
@@ -628,11 +628,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public Task<IGetOperationResult<string>> GetStringAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default)
+    public Task<IGetResult<string>> GetStringAsync(string key, Action<GetOptions> options, CancellationToken token = default)
         => GetStringAsync(key, GetOptionsFromAction(options), token);
 
     /// <inheritdoc />
-    public async Task<IGetOperationResult<string>> GetStringAsync(string key, GetOperationOptions options, CancellationToken token = default)
+    public async Task<IGetResult<string>> GetStringAsync(string key, GetOptions options, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -645,13 +645,13 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IGetOperationResult<string>> GetStringAsync(string key, CancellationToken token = default)
+    public async Task<IGetResult<string>> GetStringAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
         ArgumentNullException.ThrowIfNull(key);
 
-        var result = await GetAsyncPrivate(key, (GetOperationOptions?)null, token);
+        var result = await GetAsyncPrivate(key, (GetOptions?)null, token);
 
         return HandleGetResultAsExplorerResult(key, result, RedisResultToString);
     }
@@ -661,7 +661,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region GetBytes
 
     /// <inheritdoc />
-    public IGetOperationResult<byte[]> Get(string key, GetOperationOptions options)
+    public IGetResult<byte[]> Get(string key, GetOptions options)
     {
         CheckDisposed();
         
@@ -674,7 +674,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public IGetOperationResult<byte[]> Get(string key)
+    public IGetResult<byte[]> Get(string key)
     {
         CheckDisposed();
         
@@ -686,23 +686,23 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public IGetOperationResult<byte[]> Get(string key, Action<GetOperationOptions> options)
+    public IGetResult<byte[]> Get(string key, Action<GetOptions> options)
         => Get(key, GetOptionsFromAction(options));
 
     /// <inheritdoc />
-    public async Task<IGetOperationResult<byte[]>> GetAsync(string key, CancellationToken token = default)
+    public async Task<IGetResult<byte[]>> GetAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
         ArgumentNullException.ThrowIfNull(key);
 
-        var result = await GetAsyncPrivate(key, (GetOperationOptions?)null, token);
+        var result = await GetAsyncPrivate(key, (GetOptions?)null, token);
 
         return HandleGetResultAsExplorerResult(key, result, RedisResultToBytes);
     }
     
     /// <inheritdoc />
-    public async Task<IGetOperationResult<byte[]>> GetAsync(string key, GetOperationOptions options, CancellationToken token = default)
+    public async Task<IGetResult<byte[]>> GetAsync(string key, GetOptions options, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -716,7 +716,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
     
     /// <inheritdoc />
-    public Task<IGetOperationResult<byte[]>> GetAsync(string key, Action<GetOperationOptions> options, CancellationToken token = default)
+    public Task<IGetResult<byte[]>> GetAsync(string key, Action<GetOptions> options, CancellationToken token = default)
         => GetAsync(key, GetOptionsFromAction(options), token);
 
     #endregion
@@ -724,7 +724,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region GetDeserialized
 
     /// <inheritdoc />
-    public IGetOperationResult<TValue> Get<TValue>(string key) where TValue : class
+    public IGetResult<TValue> Get<TValue>(string key) where TValue : class
     {
         CheckDisposed();
         
@@ -736,7 +736,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
     
     /// <inheritdoc />
-    public IGetOperationResult<TValue> Get<TValue>(string key, GetOperationOptions options) where TValue : class
+    public IGetResult<TValue> Get<TValue>(string key, GetOptions options) where TValue : class
     {
         CheckDisposed();
         
@@ -749,12 +749,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public IGetOperationResult<TValue> Get<TValue>(string key, Action<GetOperationOptions> options)
+    public IGetResult<TValue> Get<TValue>(string key, Action<GetOptions> options)
         where TValue : class
         => Get<TValue>(key, GetOptionsFromAction(options));
 
     /// <inheritdoc />
-    public async Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, Action<GetOperationOptions> options, CancellationToken token = default) where TValue : class
+    public async Task<IGetResult<TValue>> GetAsync<TValue>(string key, Action<GetOptions> options, CancellationToken token = default) where TValue : class
     {
         CheckDisposed();
         
@@ -767,7 +767,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, GetOperationOptions options, CancellationToken token = default) where TValue : class
+    public async Task<IGetResult<TValue>> GetAsync<TValue>(string key, GetOptions options, CancellationToken token = default) where TValue : class
     {
         CheckDisposed();
         
@@ -780,31 +780,31 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IGetOperationResult<TValue>> GetAsync<TValue>(string key, CancellationToken token = default) where TValue : class
+    public async Task<IGetResult<TValue>> GetAsync<TValue>(string key, CancellationToken token = default) where TValue : class
     {
         CheckDisposed();
         
         ArgumentNullException.ThrowIfNull(key);
 
-        var result = await GetAsyncPrivate(key, (GetOperationOptions?)null, token);
+        var result = await GetAsyncPrivate(key, (GetOptions?)null, token);
         
         return HandleGetResultAsExplorerDeserializedResult<TValue>(key, result);
     }
     
     #endregion
     
-    private static GetOperationOptions GetOptionsFromAction(Action<GetOperationOptions> action)
+    private static GetOptions GetOptionsFromAction(Action<GetOptions> action)
     {
-        var opt = new GetOperationOptions();
+        var opt = new GetOptions();
         action.Invoke(opt);
         return opt;
     }
     
-    private RedisResult GetPrivate(string key, GetOperationOptions? options)
+    private RedisResult GetPrivate(string key, GetOptions? options)
     {
         var (_, _, redisDatabase) = Connect();
 
-        var actualOptions = options ?? GetOperationOptions.Default;
+        var actualOptions = options ?? global::RedisExplorer.GetOptions.Default;
         
         var actualKey = Prefix.Append(key);
         
@@ -828,12 +828,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         return factory(result);
     }
     
-    private GetOperationResult<TValue> HandleGetResultAsExplorerResult<TValue>(string key,  RedisResult result, Func<RedisResult,TValue?> dataFactory) where TValue : class
+    private GetResult<TValue> HandleGetResultAsExplorerResult<TValue>(string key,  RedisResult result, Func<RedisResult,TValue?> dataFactory) where TValue : class
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             _logger.LogError("Redis returned an error result - {Error}", (string?)result);
-            return new GetOperationResult<TValue>(key, result)
+            return new GetResult<TValue>(key, result)
             {
                 RedisErrorOccurred = true
             };
@@ -841,22 +841,22 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         if (result.IsNull)
         {
-            return new GetOperationResult<TValue>(key, result)
+            return new GetResult<TValue>(key, result)
             {
                 KeyNotFound = true,
                 ProcessRequirementErrorOccurred = true
             };
         }
 
-        return new GetOperationResult<TValue>(key, result, dataFactory.Invoke(result));
+        return new GetResult<TValue>(key, result, dataFactory.Invoke(result));
     }
     
-    private GetOperationResult<TValue> HandleGetResultAsExplorerDeserializedResult<TValue>(string key, RedisResult result) where TValue : class
+    private GetResult<TValue> HandleGetResultAsExplorerDeserializedResult<TValue>(string key, RedisResult result) where TValue : class
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             _logger.LogError("Redis returned an error result - {Error}", (string?)result);
-            return new GetOperationResult<TValue>(key, result)
+            return new GetResult<TValue>(key, result)
             {
                 RedisErrorOccurred = true
             };
@@ -864,7 +864,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         if (result.IsNull)
         {
-            return new GetOperationResult<TValue>(key, result)
+            return new GetResult<TValue>(key, result)
             {
                 KeyNotFound = true,
                 ProcessRequirementErrorOccurred = true
@@ -874,31 +874,31 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         var deserialized = RedisResultToDeserialized<TValue>(result);
         if (deserialized is null)
         {
-            return new GetOperationResult<TValue>(key, result)
+            return new GetResult<TValue>(key, result)
             {
                 RedisErrorOccurred = true
             };
         }
 
-        return new GetOperationResult<TValue>(key, result, deserialized);
+        return new GetResult<TValue>(key, result, deserialized);
     }
 
-    private Task<RedisResult> GetAsyncPrivate(string key, Action<GetOperationOptions> options,
+    private Task<RedisResult> GetAsyncPrivate(string key, Action<GetOptions> options,
         CancellationToken token = default)
     {
-        var opt = new GetOperationOptions();
+        var opt = new GetOptions();
         options.Invoke(opt);
         
         return GetAsyncPrivate(key, opt, token);
     }
     
-    private async Task<RedisResult> GetAsyncPrivate(string key, GetOperationOptions? options, CancellationToken token = default)
+    private async Task<RedisResult> GetAsyncPrivate(string key, GetOptions? options, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
 
         var (_, _, redisDatabase) = await ConnectAsync(token);
 
-        var actualOptions = options ?? GetOperationOptions.Default;
+        var actualOptions = options ?? global::RedisExplorer.GetOptions.Default;
         
         var actualKey = Prefix.Append(key);
 
@@ -911,7 +911,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region Refresh
 
     /// <inheritdoc />
-    public IRefreshOperationResult Refresh(string key)
+    public IRefreshResult Refresh(string key)
     {
         CheckDisposed();
         
@@ -923,7 +923,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IRefreshOperationResult> RefreshAsync(string key, CancellationToken token = default)
+    public async Task<IRefreshResult> RefreshAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -987,12 +987,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         }
     }
     
-    private RefreshOperationResult HandleRefreshResultAsExplorerResult(string key,  RedisResult result)
+    private RefreshResult HandleRefreshResultAsExplorerResult(string key,  RedisResult result)
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             _logger.LogError("Redis returned an error result - {Error}", (string?)result);
-            return new RefreshOperationResult(key, result)
+            return new RefreshResult(key, result)
             {
                 RedisErrorOccurred = true
             };
@@ -1000,7 +1000,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         if (result.IsNull)
         {
-            return new RefreshOperationResult(key, result)
+            return new RefreshResult(key, result)
             {
                 KeyNotFound = true,
                 ProcessRequirementErrorOccurred = true
@@ -1012,7 +1012,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             _logger.LogCritical("Unexpected value type returned from Redis refresh script execution. Expected a string type. Actual: {ActualType}",
                 result.Resp3Type.ToString());
 
-            return new RefreshOperationResult(key, result)
+            return new RefreshResult(key, result)
             {
                 RedisErrorOccurred = true
             };
@@ -1020,12 +1020,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             
         if (resultString == LuaScripts.SuccessReturn)
         {
-            return new RefreshOperationResult(key, result);
+            return new RefreshResult(key, result);
         }
         
         if (resultString == LuaScripts.RefreshNoSlidingExpirationReturn)
         {
-            return new RefreshOperationResult(key, result)
+            return new RefreshResult(key, result)
             {
                 KeyHasNoSlidingExpiration = true,
                 ProcessRequirementErrorOccurred = true
@@ -1036,7 +1036,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             "Unexpected value returned from Redis refresh script execution. Expected: {ExpectedValue}. Actual: {ActualValue}",
             LuaScripts.SuccessReturn, resultString);
 
-        return new RefreshOperationResult(key, result)
+        return new RefreshResult(key, result)
         {
             RedisErrorOccurred = true
         };
@@ -1049,28 +1049,28 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region SetString
 
     /// <inheritdoc />
-    public Task<ISetOperationResult> SetStringAsync(string key, string value, Action<SetOperationOptions> options,
+    public Task<ISetResult> SetStringAsync(string key, string value, Action<SetOptions> options,
         CancellationToken token = default)
         => SetAsync(key, Encoding.UTF8.GetBytes(value), GetOptionsFromAction(options), token);
 
     /// <inheritdoc />
-    public Task<ISetOperationResult> SetStringAsync(string key, string value, SetOperationOptions options, CancellationToken token = default)
+    public Task<ISetResult> SetStringAsync(string key, string value, SetOptions options, CancellationToken token = default)
         => SetAsync(key, Encoding.UTF8.GetBytes(value), options, token);
 
     /// <inheritdoc />
-    public Task<ISetOperationResult> SetStringAsync(string key, string value, CancellationToken token = default)
+    public Task<ISetResult> SetStringAsync(string key, string value, CancellationToken token = default)
         => SetAsync(key, Encoding.UTF8.GetBytes(value), token);
 
     /// <inheritdoc />
-    public ISetOperationResult SetString(string key, string value, Action<SetOperationOptions> options)
+    public ISetResult SetString(string key, string value, Action<SetOptions> options)
         => Set(key, value, GetOptionsFromAction(options));
 
     /// <inheritdoc />
-    public ISetOperationResult SetString(string key, string value, SetOperationOptions options)
+    public ISetResult SetString(string key, string value, SetOptions options)
         => Set(key, Encoding.UTF8.GetBytes(value), options);
 
     /// <inheritdoc />
-    public ISetOperationResult SetString(string key, string value)
+    public ISetResult SetString(string key, string value)
         => Set(key, Encoding.UTF8.GetBytes(value));
 
     #endregion
@@ -1078,11 +1078,11 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region SetBytes
 
     /// <inheritdoc />
-    public Task<ISetOperationResult> SetAsync(string key, byte[] value, Action<SetOperationOptions> options, CancellationToken token = default)
+    public Task<ISetResult> SetAsync(string key, byte[] value, Action<SetOptions> options, CancellationToken token = default)
         => SetAsync(key, value, GetOptionsFromAction(options), token);
 
     /// <inheritdoc />
-    public async Task<ISetOperationResult> SetAsync(string key, byte[] value, SetOperationOptions options, CancellationToken token = default)
+    public async Task<ISetResult> SetAsync(string key, byte[] value, SetOptions options, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -1096,7 +1096,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<ISetOperationResult> SetAsync(string key, byte[] value, CancellationToken token = default)
+    public async Task<ISetResult> SetAsync(string key, byte[] value, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -1109,7 +1109,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
     
     /// <inheritdoc />
-    public ISetOperationResult Set(string key, byte[] value, SetOperationOptions options)
+    public ISetResult Set(string key, byte[] value, SetOptions options)
     {
         CheckDisposed();
         
@@ -1121,7 +1121,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         return HandleSetResultAsExplorerResult(key, result, !options.OverwriteIfKeyExists);
     }
     /// <inheritdoc />
-    public ISetOperationResult Set(string key, byte[] value)
+    public ISetResult Set(string key, byte[] value)
     {
         CheckDisposed();
         
@@ -1134,7 +1134,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public ISetOperationResult Set(string key, byte[] value, Action<SetOperationOptions> options)
+    public ISetResult Set(string key, byte[] value, Action<SetOptions> options)
         => Set(key, value, GetOptionsFromAction(options));
     
     #endregion
@@ -1142,44 +1142,44 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region SetSerialized
 
     /// <inheritdoc />
-    public Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, Action<SetOperationOptions> options, CancellationToken token = default) where TValue : class
+    public Task<ISetResult> SetAsync<TValue>(string key, TValue value, Action<SetOptions> options, CancellationToken token = default) where TValue : class
         => SetAsync(key, SerializeToUtf8Bytes(value), options, token);
 
     /// <inheritdoc />
-    public Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, SetOperationOptions options, CancellationToken token = default) where TValue : class
+    public Task<ISetResult> SetAsync<TValue>(string key, TValue value, SetOptions options, CancellationToken token = default) where TValue : class
         => SetAsync(key, SerializeToUtf8Bytes(value), options, token);
 
     /// <inheritdoc />
-    public Task<ISetOperationResult> SetAsync<TValue>(string key, TValue value, CancellationToken token = default) where TValue : class
+    public Task<ISetResult> SetAsync<TValue>(string key, TValue value, CancellationToken token = default) where TValue : class
         => SetAsync(key, SerializeToUtf8Bytes(value), x => x.WithExpirationOptions(Options.ExpirationOptions.GetEntryOptions<TValue>()), token);
     
     /// <inheritdoc />
-    public ISetOperationResult Set<TValue>(string key, TValue value, Action<SetOperationOptions> options) where TValue : class
+    public ISetResult Set<TValue>(string key, TValue value, Action<SetOptions> options) where TValue : class
         => Set(key, SerializeToUtf8Bytes(value), options);
     
     /// <inheritdoc />
-    public ISetOperationResult Set<TValue>(string key, TValue value, SetOperationOptions options) where TValue : class
+    public ISetResult Set<TValue>(string key, TValue value, SetOptions options) where TValue : class
         => Set(key, SerializeToUtf8Bytes(value), options);
     
     /// <inheritdoc />
-    public ISetOperationResult Set<TValue>(string key, TValue value) where TValue : class
+    public ISetResult Set<TValue>(string key, TValue value) where TValue : class
         => Set(key, SerializeToUtf8Bytes(value));
 
     #endregion
 
-    private static SetOperationOptions GetOptionsFromAction(Action<SetOperationOptions> action)
+    private static SetOptions GetOptionsFromAction(Action<SetOptions> action)
     {
-        var opt = new SetOperationOptions();
+        var opt = new SetOptions();
         action.Invoke(opt);
         return opt;
     }
     
-    private SetOperationResult HandleSetResultAsExplorerResult(string key, RedisResult result, bool withCollisionDetection)
+    private SetResult HandleSetResultAsExplorerResult(string key, RedisResult result, bool withCollisionDetection)
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             _logger.LogError("Redis returned an error result - {Error}", result);
-            return new SetOperationResult(key, result)
+            return new SetResult(key, result)
             {
                 RedisErrorOccurred = true
             };
@@ -1190,7 +1190,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             _logger.LogCritical("Unexpected value type returned from Redis set script execution. Expected a string type. Actual: {Actual}",
                 result.Resp3Type.ToString());
 
-            return new SetOperationResult(key, result)
+            return new SetResult(key, result)
             {
                 RedisErrorOccurred = true
             };
@@ -1198,7 +1198,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         
         if (resultString == LuaScripts.SuccessReturn)
         {
-            return new SetOperationResult(key, result)
+            return new SetResult(key, result)
             {
                 KeyCollisionOccurred = withCollisionDetection ? false : null
             };
@@ -1206,7 +1206,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         
         if (resultString == LuaScripts.SetOverwrittenReturn)
         {
-            return new SetOperationResult(key, result)
+            return new SetResult(key, result)
             {
                 KeyOverwritten = true
             };
@@ -1214,7 +1214,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         
         if (resultString == LuaScripts.SetCollisionReturn)
         {
-            return new SetOperationResult(key, result)
+            return new SetResult(key, result)
             {
                 ProcessRequirementErrorOccurred = true,
                 KeyCollisionOccurred = true
@@ -1224,7 +1224,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         _logger.LogCritical("Unexpected value returned from Redis set script execution. Expected {Value}. Actual: {Actual}",
             $"{LuaScripts.SuccessReturn}, {LuaScripts.SetCollisionReturn} or {LuaScripts.SetOverwrittenReturn}", resultString);
 
-        return new SetOperationResult(key, result)
+        return new SetResult(key, result)
         {
             RedisErrorOccurred = true
         };
@@ -1250,7 +1250,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         }
     }
 
-    private RedisValue[] GetSetMembers(byte[] value, SetOperationOptions options, DistributedCacheEntryOptions? entryOptions)
+    private RedisValue[] GetSetMembers(byte[] value, SetOptions options, DistributedCacheEntryOptions? entryOptions)
     {
         var creationTime = _timeProvider.GetUtcNow();
         
@@ -1269,13 +1269,13 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         };
     }
 
-    private async Task<RedisResult> SetPrivateAsync(string key, byte[] value, SetOperationOptions? options, DistributedCacheEntryOptions? entryOptions, CancellationToken token = default)
+    private async Task<RedisResult> SetPrivateAsync(string key, byte[] value, SetOptions? options, DistributedCacheEntryOptions? entryOptions, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
 
         var (_, _, redisDatabase) = await ConnectAsync(token);
 
-        var actualOptions = options ?? SetOperationOptions.Default;
+        var actualOptions = options ?? SetOptions.Default;
         
         var actualKey = Prefix.Append(key);
 
@@ -1284,12 +1284,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         return await ProcessAsync(redisDatabase, new []{ actualKey }, setMembers, _knownInternalScripts[nameof(LuaScripts.SetScript)], LuaScripts.SetScript, token);
     }
 
-    private RedisResult SetPrivate(string key, byte[] value, SetOperationOptions? options,
+    private RedisResult SetPrivate(string key, byte[] value, SetOptions? options,
         DistributedCacheEntryOptions? entryOptions)
     {
         var (_, _, redisDatabase) = Connect();
 
-        var actualOptions = options ?? SetOperationOptions.Default;
+        var actualOptions = options ?? SetOptions.Default;
 
         var setMembers = GetSetMembers(value, actualOptions, entryOptions);
 
@@ -1303,7 +1303,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     #region Remove
 
     /// <inheritdoc />
-    public IRemoveOperationResult Remove(string key)
+    public IRemoveResult Remove(string key)
     {
         CheckDisposed();
         
@@ -1315,7 +1315,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
     }
 
     /// <inheritdoc />
-    public async Task<IRemoveOperationResult> RemoveAsync(string key, CancellationToken token = default)
+    public async Task<IRemoveResult> RemoveAsync(string key, CancellationToken token = default)
     {
         CheckDisposed();
         
@@ -1352,12 +1352,12 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
         }
     }
     
-    private RemoveOperationResult HandleRemoveResultAsExplorerResult(string key, RedisResult result)
+    private RemoveResult HandleRemoveResultAsExplorerResult(string key, RedisResult result)
     {
         if (result.Resp3Type is ResultType.Error or ResultType.BlobError)
         {
             _logger.LogError("Redis returned an error result - {Error}", result);
-            return new RemoveOperationResult(key, result)
+            return new RemoveResult(key, result)
             {
                 RedisErrorOccurred = true
             };
@@ -1365,7 +1365,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
 
         if (result.IsNull)
         {
-            return new RemoveOperationResult(key, result)
+            return new RemoveResult(key, result)
             {
                 KeyNotFound = true,
                 ProcessRequirementErrorOccurred = true
@@ -1377,7 +1377,7 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
             _logger.LogCritical("Unexpected value type returned from Redis remove script execution. Expected a string type. Actual: {Actual}",
                 result.Resp3Type.ToString());
             
-            return new RemoveOperationResult(key, result)
+            return new RemoveResult(key, result)
             {
                 RedisErrorOccurred = true
             };
@@ -1389,13 +1389,13 @@ public sealed class RedisExplorer : IRedisExplorer, IDistributedCache, IDisposab
                 "Unexpected value returned from Redis remove script execution. Expected: {ExpectedValue}. Actual: {ActualValue}", 
                 LuaScripts.SuccessReturn, resultString);
 
-            return new RemoveOperationResult(key, result)
+            return new RemoveResult(key, result)
             {
                 RedisErrorOccurred = true
             };
         }
         
-        return new RemoveOperationResult(key, result);
+        return new RemoveResult(key, result);
     }
 
     private RedisResult RemovePrivate(string key)

@@ -518,7 +518,7 @@ public class RedisExplorerTests
         
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
 
-            Action<SetOperationOptions> opt = x => x.WithoutKeyOverwriting(shouldOverwrite);
+            Action<SetOptions> opt = x => x.WithoutKeyOverwriting(shouldOverwrite);
         
             // Act
             redisExplorer.Set(fixture.TestKey, bytes, opt);
@@ -668,7 +668,7 @@ public class RedisExplorerTests
         
             var redisExplorer = fixture.GetTestInstance(databaseMock.Object, fixture.GetMultiplexerMock(), fixture.GetLockFactoryMock(), 5, fixture.GetTimeProviderMock());
 
-            Action<SetOperationOptions> opt = x => x.WithoutKeyOverwriting(shouldOverwrite);
+            Action<SetOptions> opt = x => x.WithoutKeyOverwriting(shouldOverwrite);
         
             // Act
             await redisExplorer.SetAsync(fixture.TestKey, bytes, opt);

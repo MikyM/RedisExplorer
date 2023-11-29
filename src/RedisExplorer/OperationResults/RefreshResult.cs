@@ -1,17 +1,17 @@
 ﻿namespace RedisExplorer.OperationResults;
 
 
-/// <inheritdoc cref="IRefreshOperationResult"/>
+/// <inheritdoc cref="IRefreshResult"/>
 /// <inheritdoc cref="ExplorerResult"/>
 [PublicAPI]
-public class RefreshOperationResult : ExplorerResult, IRefreshOperationResult
+public class RefreshResult : ExplorerResult, IRefreshResult
 {
     /// <summary>
-    /// Creates a new instance of <see cref="RefreshOperationResult"/>.
+    /// Creates a new instance of <see cref="RefreshResult"/>.
     /// </summary>
     /// <param name="key">The key.</param>
     /// <param name="redisResult">The SE.Redis result.</param>
-    public RefreshOperationResult(string key, RedisResult redisResult) : base(key, redisResult)
+    public RefreshResult(string key, RedisResult redisResult) : base(key, redisResult)
     {
     }
     
