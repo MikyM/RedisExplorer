@@ -3,8 +3,7 @@
 /// <summary>
 /// The Lua scripts used by RedisExplorer.
 /// </summary>
-[PublicAPI]
-public static class LuaScripts
+internal static class LuaScripts
 {
     //
     // -- Explanation of why two kinds of SetScript are used --
@@ -26,7 +25,7 @@ public static class LuaScripts
     /// <summary>
     /// The set script.
     /// </summary>
-    public const string SetScript = """
+    internal const string SetScript = """
                                                     if ARGV[5] == '1' then
                                                       if redis.call('EXISTS', KEYS[1]) == 1 then
                                                         return '3'
@@ -52,7 +51,7 @@ public static class LuaScripts
     /// <summary>
     /// Script that HGET's the key's value, refreshes the expiration and returns the value, if the key is not found NIL is returned.
     /// </summary>
-    public const string GetAndRefreshScript = """
+    internal const string GetAndRefreshScript = """
                                                               local hgetall = function (key)
                                                                 local bulk = redis.call('HGETALL', key)
                                               	                 local result = {}
@@ -122,7 +121,7 @@ public static class LuaScripts
     /// <summary>
     /// Script that refreshes the expiration and returns '1', if the key is not found NIL is returned.
     /// </summary>
-    public const string RefreshScript = """
+    internal const string RefreshScript = """
                                                         local result = redis.call('HMGET', KEYS[1], 'absexp', 'sldexp')
 
                                                         if result[1] == nil then
@@ -169,7 +168,7 @@ public static class LuaScripts
     /// </summary>
     // KEYS[1] = = key
     // RETURNS null if not exists, 1 if removed.
-    public const string RemoveScript = """
+    internal const string RemoveScript = """
                                        local removedCount = redis.call('UNLINK', KEYS[1])
                                        if removedCount >= 1 then
                                           return '1'
@@ -181,45 +180,45 @@ public static class LuaScripts
     /// <summary>
     /// Absolute exp key.
     /// </summary>
-    public const string AbsoluteExpirationKey = "absexp";
+    internal const string AbsoluteExpirationKey = "absexp";
     /// <summary>
     /// Sliding exp key.
     /// </summary>
-    public const string SlidingExpirationKey = "sldexp";
+    internal const string SlidingExpirationKey = "sldexp";
     /// <summary>
     /// Data key.
     /// </summary>
-    public const string DataKey = "data";
+    internal const string DataKey = "data";
     /// <summary>
     /// Refresh key expiration on GET arg.
     /// </summary>
-    public const string GetWithRefreshArg = "1";
+    internal const string GetWithRefreshArg = "1";
     /// <summary>
     /// Abort if exists.
     /// </summary>
-    public const string WithoutKeyOverwriteArg = "1";
+    internal const string WithoutKeyOverwriteArg = "1";
     /// <summary>
     /// Successful result no data value.
     /// </summary>
-    public const string SuccessReturn = "1";
+    internal const string SuccessReturn = "1";
     /// <summary>
     /// Successful result no data value when a set method overwritten existing data.
     /// </summary>
-    public const string SetOverwrittenReturn = "2";
+    internal const string SetOverwrittenReturn = "2";
     /// <summary>
     /// Successful result no data value when a set method collided with existing key.
     /// </summary>
-    public const string SetCollisionReturn = "3";
+    internal const string SetCollisionReturn = "3";
     /// <summary>
     /// No sliding exp on refresh.
     /// </summary>
-    public const string RefreshNoSlidingExpirationReturn = "4";
+    internal const string RefreshNoSlidingExpirationReturn = "4";
     /// <summary>
     /// Not present value.
     /// </summary>
-    public const short NotPresent = -1;
+    internal const short NotPresent = -1;
     /// <summary>
     /// Not found value.
     /// </summary>
-    public const string? NotFoundReturnValue = null;
+    internal const string? NotFoundReturnValue = null;
 }
